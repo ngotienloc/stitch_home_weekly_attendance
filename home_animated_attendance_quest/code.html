@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>AttendanceHero - Home</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary": "#006762",
+                    "on-tertiary": "#ffffff",
+                    "primary-fixed": "#e3dfff",
+                    "secondary-fixed": "#ffdad8",
+                    "surface-container-highest": "#e1e3e4",
+                    "on-surface-variant": "#464555",
+                    "primary-fixed-dim": "#c4c0ff",
+                    "outline": "#777587",
+                    "error-container": "#ffdad6",
+                    "surface-variant": "#e1e3e4",
+                    "on-secondary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed": "#00201e",
+                    "on-surface": "#191c1d",
+                    "on-tertiary-fixed-variant": "#00504c",
+                    "secondary-container": "#ff6b6b",
+                    "on-secondary-container": "#6d0010",
+                    "inverse-on-surface": "#f0f1f2",
+                    "on-tertiary-container": "#f3fffd",
+                    "on-background": "#191c1d",
+                    "secondary-fixed-dim": "#ffb3b0",
+                    "secondary": "#ae2f34",
+                    "background": "#f8f9fa",
+                    "on-primary-fixed": "#100069",
+                    "tertiary-container": "#00837c",
+                    "surface-dim": "#d9dadb",
+                    "tertiary-fixed-dim": "#5dd9d0",
+                    "outline-variant": "#c7c4d8",
+                    "error": "#ba1a1a",
+                    "surface-container": "#edeeef",
+                    "surface-bright": "#f8f9fa",
+                    "on-error": "#ffffff",
+                    "on-secondary-fixed-variant": "#8c1520",
+                    "inverse-primary": "#c4c0ff",
+                    "primary": "#4d41df",
+                    "inverse-surface": "#2e3132",
+                    "on-error-container": "#93000a",
+                    "on-primary-fixed-variant": "#3622ca",
+                    "surface-container-high": "#e7e8e9",
+                    "on-secondary-fixed": "#410006",
+                    "tertiary-fixed": "#7cf6ec",
+                    "surface": "#f8f9fa",
+                    "on-primary-container": "#fffbff",
+                    "primary-container": "#675df9",
+                    "surface-tint": "#4f44e2",
+                    "on-primary": "#ffffff",
+                    "surface-container-low": "#f3f4f5"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "xxl": "24px",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "container-margin": "20px",
+                    "xl": "32px",
+                    "md": "16px",
+                    "lg": "24px",
+                    "sm": "12px",
+                    "gutter": "16px",
+                    "base": "8px",
+                    "xs": "4px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Montserrat"],
+                    "label-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-bold": ["Inter"],
+                    "display-hero": ["Montserrat"],
+                    "display-hero-mobile": ["Montserrat"],
+                    "body-lg": ["Inter"],
+                    "headline-md": ["Montserrat"]
+            },
+            "fontSize": {
+                    "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-bold": ["14px", {"lineHeight": "20px", "fontWeight": "700"}],
+                    "display-hero": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "display-hero-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "800"}],
+                    "body-lg": ["18px", {"lineHeight": "26px", "fontWeight": "500"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        :root {
+            --transition-speed: 0.3s;
+            --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+            --ease-out: cubic-bezier(0, 0, 0.2, 1);
+        }
+
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* Animations */
+        @keyframes fade-in-up {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 10px 25px -5px rgba(77, 65, 223, 0.4); }
+            50% { box-shadow: 0 10px 35px 5px rgba(77, 65, 223, 0.6); }
+            100% { box-shadow: 0 10px 25px -5px rgba(77, 65, 223, 0.4); }
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-4px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .animate-fade-in-up {
+            animation: fade-in-up 0.6s var(--ease-out) both;
+        }
+
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
+        .stagger-4 { animation-delay: 0.4s; }
+
+        .cta-pulse {
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+
+        .float-badge {
+            animation: float 3s infinite ease-in-out;
+        }
+
+        .shimmer-pill {
+            background: linear-gradient(90deg, #ffffff 25%, #e3dfff 50%, #ffffff 75%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite linear;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .animate-fade-in-up, .cta-pulse, .float-badge, .shimmer-pill, .animate-pulse {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+        }
+
+        /* Custom scrollbar for horizontal pill row */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .interactive-scale {
+            transition: transform var(--transition-speed) var(--ease-standard);
+        }
+        .interactive-scale:active {
+            transform: scale(0.95);
+        }
+    </style>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+<!-- Top App Bar -->
+<header class="bg-surface w-full rounded-b-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] sticky top-0 z-50">
+<div class="flex justify-between items-center px-container-margin py-md w-full max-w-[600px] mx-auto">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary text-headline-lg-mobile" data-icon="school">school</span>
+<h1 class="text-headline-lg-mobile font-headline-lg-mobile font-extrabold text-primary tracking-tight">AttendanceHero</h1>
+</div>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-fixed interactive-scale cursor-pointer">
+<img alt="Student Profile Avatar" data-alt="A high-quality 3D rendered avatar of a friendly university student with a modern hairstyle and glasses. The lighting is soft and professional, set against a vibrant purple background that matches the AttendanceHero brand colors. The aesthetic is clean and modern, following the energetic and student-centric gamified UI theme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD2M-ka5mkkNqou86tgIBNnKKW5ZotWwJp0eF4NSLuoUzB71mRAbV99IidHqOA-NLdodpP4a-0zjU1h00zCHx9CfFAA9n_pPeLVQQhnZJCa48FdESl2ij2Eyluoc33nTx7QWq_dRZF2Van5VN-FkymT2toonIdxothGVZUoqom6Wnsg1vHZUaPUN2D63mbQwBmGO-LjEickcivkM5E8w9SCVmaTwdxFgnZCnqw42Z_EpOPAEn71Kubx02WLMwzzfOGPLlPFpTqC2Vw"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow w-full max-w-[600px] mx-auto px-container-margin py-lg pb-32">
+<!-- Hero Header Section -->
+<section class="animate-fade-in-up bg-primary p-lg rounded-xxl text-on-primary mb-xl relative overflow-hidden shadow-xl">
+<!-- Background Decorative Element -->
+<div class="absolute -right-8 -top-8 w-32 h-32 bg-primary-container opacity-20 rounded-full blur-2xl"></div>
+<div class="relative z-10">
+<p class="text-label-bold font-label-bold opacity-90 mb-xs">Now Attending</p>
+<h2 class="text-display-hero-mobile font-display-hero-mobile mb-md">Advanced Psychology</h2>
+<div class="flex justify-between items-end mb-sm">
+<span class="text-label-bold font-label-bold">Week 9 / 16</span>
+<span class="float-badge text-label-sm font-label-sm bg-white/20 px-sm py-xs rounded-full flex items-center gap-1">
+<span class="inline-block animate-bounce">🔥</span> 12 Day Streak
+                    </span>
+</div>
+<!-- Progress Pill Row -->
+<div class="flex gap-1.5 overflow-x-auto no-scrollbar py-2">
+<!-- Weeks 1-8: Green (Completed) -->
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-tertiary-fixed shadow-sm"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-tertiary-fixed shadow-sm"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-tertiary-fixed shadow-sm"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-tertiary-fixed shadow-sm"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-tertiary-fixed shadow-sm"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-tertiary-fixed shadow-sm"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-tertiary-fixed shadow-sm"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-tertiary-fixed shadow-sm"></div>
+<!-- Week 9: Active (Purple/White Glow with Shimmer) -->
+<div class="shimmer-pill flex-shrink-0 w-12 h-3 rounded-full ring-4 ring-white/30"></div>
+<!-- Weeks 10-16: Gray (Remaining) -->
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-white/20"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-white/20"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-white/20"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-white/20"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-white/20"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-white/20"></div>
+<div class="flex-shrink-0 w-8 h-3 rounded-full bg-white/20"></div>
+</div>
+</div>
+</section>
+<!-- Games Section -->
+<section class="mb-lg">
+<div class="flex justify-between items-center mb-md">
+<h3 class="text-headline-md font-headline-md text-on-surface">This week's games</h3>
+<span class="text-primary text-label-bold font-label-bold flex items-center interactive-scale cursor-pointer">
+                    View Leaderboard <span class="material-symbols-outlined text-[18px] ml-xs" data-icon="chevron_right">chevron_right</span>
+</span>
+</div>
+<div class="space-y-gutter">
+<!-- Game Card 1 -->
+<div class="animate-fade-in-up stagger-1 bg-surface-container-lowest p-md rounded-xxl flex items-center gap-md border border-outline-variant/30 shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95 hover:shadow-md cursor-pointer">
+<div class="w-14 h-14 rounded-xl bg-primary-fixed-dim flex items-center justify-center text-[28px]">
+                        🏃
+                    </div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<h4 class="text-label-bold font-label-bold text-on-surface">Fastest check-in</h4>
+<span class="bg-primary-container text-on-primary-container text-[11px] font-bold px-2 py-0.5 rounded-lg">+15pts</span>
+</div>
+<p class="text-label-sm font-label-sm text-on-surface-variant mt-xs leading-tight">Be the first to tap when class starts!</p>
+</div>
+</div>
+<!-- Game Card 2 -->
+<div class="animate-fade-in-up stagger-2 bg-surface-container-lowest p-md rounded-xxl flex items-center gap-md border border-outline-variant/30 shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95 hover:shadow-md cursor-pointer">
+<div class="w-14 h-14 rounded-xl bg-secondary-fixed flex items-center justify-center text-[28px]">
+                        🙋
+                    </div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<h4 class="text-label-bold font-label-bold text-on-surface">Secret question</h4>
+<span class="bg-secondary-container text-on-secondary-container text-[11px] font-bold px-2 py-0.5 rounded-lg">+10pts</span>
+</div>
+<p class="text-label-sm font-label-sm text-on-surface-variant mt-xs leading-tight">Answer the professor's live question.</p>
+</div>
+</div>
+<!-- Game Card 3 -->
+<div class="animate-fade-in-up stagger-3 bg-surface-container-lowest p-md rounded-xxl flex items-center gap-md border border-outline-variant/30 shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95 hover:shadow-md cursor-pointer">
+<div class="w-14 h-14 rounded-xl bg-tertiary-fixed flex items-center justify-center text-[28px]">
+                        🤝
+                    </div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<h4 class="text-label-bold font-label-bold text-on-surface">Check-in with teacher</h4>
+<span class="bg-tertiary-container text-on-tertiary-container text-[11px] font-bold px-2 py-0.5 rounded-lg">+10pts</span>
+</div>
+<p class="text-label-sm font-label-sm text-on-surface-variant mt-xs leading-tight">Show your QR code to Prof. Miller.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- CTA Action Area -->
+<div class="animate-fade-in-up stagger-4 mt-xl flex flex-col items-center">
+<button class="w-full py-lg bg-gradient-to-r from-primary to-primary-container text-on-primary font-headline-md text-headline-md rounded-xxl cta-pulse transition-all duration-300 active:scale-95 flex items-center justify-center gap-sm group relative overflow-hidden">
+<span class="material-symbols-outlined group-active:rotate-45 transition-transform" data-icon="location_on">location_on</span>
+                Check In Now
+            </button>
+<p class="text-label-sm font-label-sm text-on-surface-variant mt-md">Requires Bluetooth &amp; Location enabled</p>
+</div>
+</main>
+<!-- Bottom Nav Bar -->
+<nav class="bg-surface-container-low fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] flex justify-around items-center py-sm px-md pb-safe rounded-t-xl z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+<!-- Home Active -->
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-5 py-1.5 shadow-[0_0_10px_rgba(77,65,223,0.4)] transition-all duration-300 ease-out active:scale-90">
+<span class="material-symbols-outlined" data-icon="home" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-label-sm font-label-sm">Home</span>
+</button>
+<!-- Leaderboard Inactive -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-1.5 hover:bg-surface-container-high transition-all duration-300 ease-out active:scale-90">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+<span class="text-label-sm font-label-sm">Leaderboard</span>
+</button>
+<!-- Profile Inactive -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-1.5 hover:bg-surface-container-high transition-all duration-300 ease-out active:scale-90">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-label-sm font-label-sm">Profile</span>
+</button>
+</nav>
+<script>
+        // Micro-interaction for all buttons and interactive elements
+        document.querySelectorAll('button, .interactive-scale, [role="button"]').forEach(element => {
+            element.addEventListener('touchstart', () => {
+                element.style.transform = 'scale(0.95)';
+            });
+            element.addEventListener('touchend', () => {
+                element.style.transform = '';
+            });
+        });
+    </script>
+</body></html>

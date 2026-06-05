@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .streak-glow {
+            box-shadow: 0 0 15px rgba(77, 65, 223, 0.3);
+        }
+
+        /* Custom Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes pop-in {
+            0% { transform: scale(0.8); opacity: 0; }
+            70% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop-in {
+            animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            opacity: 0;
+        }
+
+        @keyframes glint {
+            0% { transform: translateX(-150%) skewX(-25deg); }
+            50%, 100% { transform: translateX(150%) skewX(-25deg); }
+        }
+        .glint-effect {
+            position: relative;
+            overflow: hidden;
+        }
+        .glint-effect::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: glint 3s infinite;
+        }
+
+        @keyframes slide-in-up {
+            0% { transform: translateY(20px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up {
+            animation: slide-in-up 0.4s ease-out forwards;
+            opacity: 0;
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .stagger-fade {
+            animation: fade-in 0.3s ease-out forwards;
+            opacity: 0;
+        }
+
+        /* Reduced Motion Support */
+        @media (prefers-reduced-motion: reduce) {
+            .animate-float, 
+            .animate-pop-in, 
+            .glint-effect::after, 
+            .animate-slide-up, 
+            .stagger-fade {
+                animation: none !important;
+                opacity: 1 !important;
+                transform: none !important;
+            }
+            .active\:scale-95 {
+                transform: none !important;
+            }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#006762",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#e3dfff",
+                        "secondary-fixed": "#ffdad8",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-surface-variant": "#464555",
+                        "primary-fixed-dim": "#c4c0ff",
+                        "outline": "#777587",
+                        "error-container": "#ffdad6",
+                        "surface-variant": "#e1e3e4",
+                        "on-secondary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#00201e",
+                        "on-surface": "#191c1d",
+                        "on-tertiary-fixed-variant": "#00504c",
+                        "secondary-container": "#ff6b6b",
+                        "on-secondary-container": "#6d0010",
+                        "inverse-on-surface": "#f0f1f2",
+                        "on-tertiary-container": "#f3fffd",
+                        "on-background": "#191c1d",
+                        "secondary-fixed-dim": "#ffb3b0",
+                        "secondary": "#ae2f34",
+                        "background": "#f8f9fa",
+                        "on-primary-fixed": "#100069",
+                        "tertiary-container": "#00837c",
+                        "surface-dim": "#d9dadb",
+                        "tertiary-fixed-dim": "#5dd9d0",
+                        "outline-variant": "#c7c4d8",
+                        "error": "#ba1a1a",
+                        "surface-container": "#edeeef",
+                        "surface-bright": "#f8f9fa",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed-variant": "#8c1520",
+                        "inverse-primary": "#c4c0ff",
+                        "primary": "#4d41df",
+                        "inverse-surface": "#2e3132",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed-variant": "#3622ca",
+                        "surface-container-high": "#e7e8e9",
+                        "on-secondary-fixed": "#410006",
+                        "tertiary-fixed": "#7cf6ec",
+                        "surface": "#f8f9fa",
+                        "on-primary-container": "#fffbff",
+                        "primary-container": "#675df9",
+                        "surface-tint": "#4f44e2",
+                        "on-primary": "#ffffff",
+                        "surface-container-low": "#f3f4f5"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px",
+                        "card": "24px"
+                    },
+                    "spacing": {
+                        "container-margin": "20px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "sm": "12px",
+                        "gutter": "16px",
+                        "base": "8px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Montserrat"],
+                        "label-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-bold": ["Inter"],
+                        "display-hero": ["Montserrat"],
+                        "display-hero-mobile": ["Montserrat"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Montserrat"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "headline-lg-mobile": ["20px", {"lineHeight": "28px", "fontWeight": "700"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-bold": ["14px", {"lineHeight": "20px", "fontWeight": "700"}],
+                        "display-hero": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                        "display-hero-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "800"}],
+                        "body-lg": ["18px", {"lineHeight": "26px", "fontWeight": "500"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+          min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-background font-body-md text-on-background min-h-screen pb-24">
+<!-- Top App Bar -->
+<header class="bg-surface w-full rounded-b-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] sticky top-0 z-50">
+<div class="flex justify-between items-center px-container-margin py-md w-full max-w-[600px] mx-auto">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary" data-icon="school">school</span>
+<h1 class="text-headline-lg-mobile font-headline-lg-mobile font-extrabold text-primary tracking-tight">AttendanceHero</h1>
+</div>
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold shadow-sm overflow-hidden border-2 border-primary-fixed transition-transform hover:scale-110">
+<img alt="Alex Johnson" class="w-full h-full object-cover" data-alt="A professional and friendly headshot of a young male psychology student with a warm smile. The lighting is soft and natural, emphasizing a bright academic setting. The background is slightly blurred with hints of a university campus. The overall image has a clean, high-key aesthetic consistent with a modern student profile UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfrAGyVgY_j9atz5t_aIB7roKIQMwLCC63LYTIL2oAurzXGE8DvZAgM0vKg5P219N-KLDqhPjR4nuM2TB4cez2yTY10VmZIHPe3owGYfcULAlFNZv5P5ca1XkgFENpcSzNfsFQeQofPzWDRUfNRLpGmW3HUiu6Uts59VJExDqPq6w21o3MCRl537mlp6mcLj3Ni2pc2I1BFOUwUQ9MG5tnrNqOloyiq6ZiuGDOkIIlzHJRIkjj13a9riAih5qfws146BKwSFWhjQo"/>
+</div>
+</div>
+</header>
+<main class="max-w-[600px] mx-auto px-container-margin pt-lg space-y-lg">
+<!-- Profile Header Section -->
+<section class="flex flex-col items-center text-center space-y-sm">
+<div class="relative animate-float">
+<div class="w-24 h-24 rounded-full border-4 border-white shadow-lg overflow-hidden streak-glow transition-transform duration-300 hover:scale-105">
+<img alt="Alex Johnson Profile" class="w-full h-full object-cover" data-alt="Detailed close-up portrait of Alex Johnson, a university student, appearing confident and approachable. The lighting is crisp and modern, featuring vibrant purple and white tones that match the AttendanceHero brand identity. He is wearing casual student attire, set against a minimalist architectural background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdIzZ9UkJ7P2ybplGccz9eZBAAFdyoUFddgOK3Kkikji2z_WER_BmPjGtEs_zK0FC-xj33kGc4EAaPQjm4Wyy2i4jlMt_jmG-iuL0jXylQsRRmnQKGSKqOWhpi3oS2DLO3aCBetpiIL06lBVTBFCU0JCyyuOSLBRQQHYK4omnl01z50e4a-JEKuTRyHWJxsraXSOuKxzU-eKKjakXXQ2zpAhWeo2Md0ioaomGaioVLiYhmBACIdH9nbutE1ckRXWuMk4ZKgBeejxQ"/>
+<div class="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white">edit</span>
+</div>
+</div>
+<div class="absolute -bottom-1 -right-1 bg-tertiary-container text-on-tertiary-container rounded-full p-1.5 shadow-md flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</div>
+<div>
+<h2 class="text-display-hero-mobile font-display-hero-mobile text-on-surface">Alex Johnson</h2>
+<p class="text-on-surface-variant font-body-md">Year 2 Psychology Student</p>
+</div>
+</section>
+<!-- Metric Cards -->
+<section class="grid grid-cols-3 gap-base">
+<div class="bg-surface-container-low p-sm rounded-card flex flex-col items-center justify-center text-center shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-surface-variant/50 animate-pop-in" style="animation-delay: 0.1s">
+<span class="text-headline-md font-headline-md text-primary">210</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider">Total Pts</span>
+</div>
+<div class="bg-primary-container p-sm rounded-card flex flex-col items-center justify-center text-center shadow-lg transform scale-105 animate-pop-in" style="animation-delay: 0.2s">
+<span class="text-headline-md font-headline-md text-on-primary-container flex items-center gap-1">
+                    12 <span class="text-lg">🔥</span>
+</span>
+<span class="text-label-sm font-label-sm text-on-primary-container uppercase tracking-wider">Day Streak</span>
+</div>
+<div class="bg-surface-container-low p-sm rounded-card flex flex-col items-center justify-center text-center shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-surface-variant/50 animate-pop-in" style="animation-delay: 0.3s">
+<span class="text-headline-md font-headline-md text-tertiary">95%</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider">Attend.</span>
+</div>
+</section>
+<!-- Multiplier Banner -->
+<div class="bg-primary-container text-on-primary-container p-md rounded-card flex justify-between items-center shadow-md relative overflow-hidden">
+<div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 blur-2xl"></div>
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="bolt" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</div>
+<div>
+<h4 class="font-label-bold text-label-bold">Streak bonus active!</h4>
+<p class="text-sm opacity-90">Earning extra points every lecture</p>
+</div>
+</div>
+<div class="bg-white/20 px-sm py-xs rounded-full font-headline-md text-headline-md glint-effect">
+                1.2x
+            </div>
+</div>
+<!-- 16-Week Heatmap -->
+<section class="bg-white p-lg rounded-card shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-surface-variant/20">
+<div class="flex justify-between items-center mb-md">
+<h3 class="text-headline-md font-headline-md text-on-surface">Attendance History</h3>
+<span class="text-label-sm font-label-sm text-on-surface-variant">Semester 1</span>
+</div>
+<div class="grid grid-cols-8 gap-sm md:grid-cols-8" id="history-grid">
+<!-- Staggered animation added via JS or manual delay -->
+<div class="aspect-square bg-tertiary-container rounded-lg flex items-center justify-center text-white text-[10px] font-bold shadow-sm stagger-fade" style="animation-delay: 0.05s" title="Week 1: Attended">1</div>
+<div class="aspect-square bg-tertiary-container rounded-lg flex items-center justify-center text-white text-[10px] font-bold shadow-sm stagger-fade" style="animation-delay: 0.1s" title="Week 2: Attended">2</div>
+<div class="aspect-square bg-tertiary-container rounded-lg flex items-center justify-center text-white text-[10px] font-bold shadow-sm stagger-fade" style="animation-delay: 0.15s" title="Week 3: Attended">3</div>
+<div class="aspect-square bg-secondary-container rounded-lg flex items-center justify-center text-white text-[10px] font-bold shadow-sm stagger-fade" style="animation-delay: 0.2s" title="Week 4: Bonus Earned">⭐</div>
+<div class="aspect-square bg-tertiary-container rounded-lg flex items-center justify-center text-white text-[10px] font-bold shadow-sm stagger-fade" style="animation-delay: 0.25s" title="Week 5: Attended">5</div>
+<div class="aspect-square bg-tertiary-container rounded-lg flex items-center justify-center text-white text-[10px] font-bold shadow-sm stagger-fade" style="animation-delay: 0.3s" title="Week 6: Attended">6</div>
+<div class="aspect-square bg-tertiary-container rounded-lg flex items-center justify-center text-white text-[10px] font-bold shadow-sm stagger-fade" style="animation-delay: 0.35s" title="Week 7: Attended">7</div>
+<div class="aspect-square bg-tertiary-container rounded-lg flex items-center justify-center text-white text-[10px] font-bold shadow-sm stagger-fade" style="animation-delay: 0.4s" title="Week 8: Attended">8</div>
+<div class="aspect-square bg-surface-container rounded-lg border-2 border-dashed border-outline-variant/30 flex items-center justify-center text-on-surface-variant/50 text-[10px] font-bold stagger-fade" style="animation-delay: 0.45s">9</div>
+<div class="aspect-square bg-surface-container rounded-lg border-2 border-dashed border-outline-variant/30 flex items-center justify-center text-on-surface-variant/50 text-[10px] font-bold stagger-fade" style="animation-delay: 0.5s">10</div>
+<div class="aspect-square bg-surface-container rounded-lg border-2 border-dashed border-outline-variant/30 flex items-center justify-center text-on-surface-variant/50 text-[10px] font-bold stagger-fade" style="animation-delay: 0.55s">11</div>
+<div class="aspect-square bg-surface-container rounded-lg border-2 border-dashed border-outline-variant/30 flex items-center justify-center text-on-surface-variant/50 text-[10px] font-bold stagger-fade" style="animation-delay: 0.6s">12</div>
+<div class="aspect-square bg-surface-container rounded-lg border-2 border-dashed border-outline-variant/30 flex items-center justify-center text-on-surface-variant/50 text-[10px] font-bold stagger-fade" style="animation-delay: 0.65s">13</div>
+<div class="aspect-square bg-surface-container rounded-lg border-2 border-dashed border-outline-variant/30 flex items-center justify-center text-on-surface-variant/50 text-[10px] font-bold stagger-fade" style="animation-delay: 0.7s">14</div>
+<div class="aspect-square bg-surface-container rounded-lg border-2 border-dashed border-outline-variant/30 flex items-center justify-center text-on-surface-variant/50 text-[10px] font-bold stagger-fade" style="animation-delay: 0.75s">15</div>
+<div class="aspect-square bg-surface-container rounded-lg border-2 border-dashed border-outline-variant/30 flex items-center justify-center text-on-surface-variant/50 text-[10px] font-bold stagger-fade" style="animation-delay: 0.8s">16</div>
+</div>
+<div class="mt-md flex gap-md">
+<div class="flex items-center gap-1 text-label-sm font-label-sm text-on-surface-variant">
+<div class="w-3 h-3 bg-tertiary-container rounded-sm"></div> Attended
+                </div>
+<div class="flex items-center gap-1 text-label-sm font-label-sm text-on-surface-variant">
+<div class="w-3 h-3 bg-secondary-container rounded-sm"></div> Bonus
+                </div>
+<div class="flex items-center gap-1 text-label-sm font-label-sm text-on-surface-variant">
+<div class="w-3 h-3 bg-surface-container rounded-sm border border-outline-variant/30"></div> Upcoming
+                </div>
+</div>
+</section>
+<!-- Activity Log -->
+<section class="space-y-md">
+<div class="flex justify-between items-end">
+<h3 class="text-headline-md font-headline-md text-on-surface">Recent Activity</h3>
+<button class="text-primary font-label-bold text-label-bold hover:underline">View All</button>
+</div>
+<div class="bg-white rounded-card shadow-[0_4px_12px_rgba(0,0,0,0.05)] divide-y divide-surface-variant/50 overflow-hidden border border-surface-variant/20">
+<!-- Activity Rows -->
+<div class="p-md flex justify-between items-center hover:bg-surface-container-low transition-colors group animate-slide-up" style="animation-delay: 0.2s">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-tertiary/10 text-tertiary flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="timer">timer</span>
+</div>
+<div>
+<p class="font-label-bold text-label-bold text-on-surface">Fastest check-in</p>
+<p class="text-label-sm text-on-surface-variant">Social Psychology • Oct 24</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-primary font-bold">+15pts</p>
+</div>
+</div>
+<div class="p-md flex justify-between items-center hover:bg-surface-container-low transition-colors group animate-slide-up" style="animation-delay: 0.3s">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-secondary-container/10 text-secondary flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="local_fire_department" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+</div>
+<div>
+<p class="font-label-bold text-label-bold text-on-surface">Streak Milestone</p>
+<p class="text-label-sm text-on-surface-variant">10 Days reached! • Oct 22</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-primary font-bold">+50pts</p>
+</div>
+</div>
+<div class="p-md flex justify-between items-center hover:bg-surface-container-low transition-colors group animate-slide-up" style="animation-delay: 0.4s">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="task_alt">task_alt</span>
+</div>
+<div>
+<p class="font-label-bold text-label-bold text-on-surface">Lecture Attended</p>
+<p class="text-label-sm text-on-surface-variant">Cognitive Science • Oct 21</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-primary font-bold">+10pts</p>
+</div>
+</div>
+<div class="p-md flex justify-between items-center hover:bg-surface-container-low transition-colors group animate-slide-up" style="animation-delay: 0.5s">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-tertiary/10 text-tertiary flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="stars" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+<div>
+<p class="font-label-bold text-label-bold text-on-surface">Feedback Bonus</p>
+<p class="text-label-sm text-on-surface-variant">Quick Survey • Oct 20</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-primary font-bold">+5pts</p>
+</div>
+</div>
+<div class="p-md flex justify-between items-center hover:bg-surface-container-low transition-colors group animate-slide-up" style="animation-delay: 0.6s">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="calendar_month">calendar_month</span>
+</div>
+<div>
+<p class="font-label-bold text-label-bold text-on-surface">Lecture Attended</p>
+<p class="text-label-sm text-on-surface-variant">Developmental Psych • Oct 19</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-primary font-bold">+10pts</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Danger Zone / Log Out -->
+<button class="w-full py-md border-2 border-error/20 text-error font-label-bold rounded-card hover:bg-error/5 transition-all active:scale-95 flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+            Sign Out
+        </button>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] flex justify-around items-center py-sm px-md pb-safe bg-surface-container-low rounded-t-xl shadow-lg z-50">
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-1.5 transition-all duration-300 ease-out active:scale-90 hover:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="text-label-sm font-label-sm">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-1.5 transition-all duration-300 ease-out active:scale-90 hover:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+<span class="text-label-sm font-label-sm">Leaderboard</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-5 py-1.5 shadow-[0_0_10px_rgba(77,65,223,0.4)] transition-all duration-300 ease-out active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="text-label-sm font-label-sm">Profile</span>
+</a>
+</nav>
+<script>
+        // Micro-interaction for activity items
+        document.querySelectorAll('.divide-y > div').forEach(item => {
+            item.addEventListener('click', () => {
+                const bgClass = 'bg-primary-container/10';
+                item.classList.add(bgClass);
+                setTimeout(() => {
+                    item.classList.remove(bgClass);
+                }, 300);
+            });
+        });
+
+        // Add 'active' state logic for better touch feedback
+        const buttons = document.querySelectorAll('button, a');
+        buttons.forEach(btn => {
+            btn.addEventListener('touchstart', () => btn.classList.add('scale-95'));
+            btn.addEventListener('touchend', () => btn.classList.remove('scale-95'));
+        });
+    </script>
+</body></html>

@@ -1,0 +1,235 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #4d41df;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #675df9;
+  --color-on-primary-container: #fffbff;
+  --color-secondary: #ae2f34;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #ff6b6b;
+  --color-on-secondary-container: #6d0010;
+  --color-tertiary: #006762;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #00837c;
+  --color-on-tertiary-container: #f3fffd;
+  --color-surface: #f8f9fa;
+  --color-surface-dim: #d9dadb;
+  --color-surface-bright: #f8f9fa;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f3f4f5;
+  --color-surface-container: #edeeef;
+  --color-surface-container-high: #e7e8e9;
+  --color-surface-container-highest: #e1e3e4;
+  --color-on-surface: #191c1d;
+  --color-on-surface-variant: #464555;
+  --color-inverse-surface: #2e3132;
+  --color-inverse-on-surface: #f0f1f2;
+  --color-outline: #777587;
+  --color-outline-variant: #c7c4d8;
+  --color-surface-tint: #4f44e2;
+  --color-inverse-primary: #c4c0ff;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  --color-primary-fixed: #e3dfff;
+  --color-primary-fixed-dim: #c4c0ff;
+  --color-on-primary-fixed: #100069;
+  --color-on-primary-fixed-variant: #3622ca;
+  --color-secondary-fixed: #ffdad8;
+  --color-secondary-fixed-dim: #ffb3b0;
+  --color-on-secondary-fixed: #410006;
+  --color-on-secondary-fixed-variant: #8c1520;
+  --color-tertiary-fixed: #7cf6ec;
+  --color-tertiary-fixed-dim: #5dd9d0;
+  --color-on-tertiary-fixed: #00201e;
+  --color-on-tertiary-fixed-variant: #00504c;
+  --color-background: #f8f9fa;
+  --color-on-background: #191c1d;
+  --color-surface-variant: #e1e3e4;
+
+  --radius-xxl: 24px;
+  --radius-xl: 1.5rem;
+  --radius-lg: 1rem;
+  --radius-md: 0.75rem;
+
+  --spacing-container-margin: 20px;
+  --spacing-gutter: 16px;
+  --spacing-xs: 4px;
+  --spacing-base: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  --font-headline-lg: Montserrat, sans-serif;
+  --font-label-sm: Inter, sans-serif;
+  --font-body-md: Inter, sans-serif;
+  --font-label-bold: Inter, sans-serif;
+  --font-display-hero: Montserrat, sans-serif;
+  --font-display-hero-mobile: Montserrat, sans-serif;
+  --font-body-lg: Inter, sans-serif;
+  --font-headline-md: Montserrat, sans-serif;
+}
+
+:root {
+  --transition-speed: 0.3s;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+}
+
+body {
+  background-color: #f8f9fa;
+  font-family: 'Inter', sans-serif;
+  color: #191c1d;
+  -webkit-tap-highlight-color: transparent;
+  min-height: max(884px, 100dvh);
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+/* Custom styles from Stitch */
+.bg-gold { background: linear-gradient(135deg, #FFD700 0%, #FFB800 100%); }
+.bg-silver { background: linear-gradient(135deg, #C0C0C0 0%, #A9A9A9 100%); }
+.bg-bronze { background: linear-gradient(135deg, #CD7F32 0%, #A0522D 100%); }
+
+.glow-primary { box-shadow: 0 0 15px rgba(77, 65, 223, 0.3); }
+.glow-secondary { box-shadow: 0 0 15px rgba(255, 107, 107, 0.3); }
+.streak-glow { box-shadow: 0 0 15px rgba(77, 65, 223, 0.3); }
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.interactive-scale {
+  transition: transform var(--transition-speed) var(--ease-standard);
+}
+.interactive-scale:active {
+  transform: scale(0.95);
+}
+
+/* Animations */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0% { box-shadow: 0 10px 25px -5px rgba(77, 65, 223, 0.4); }
+  50% { box-shadow: 0 10px 35px 5px rgba(77, 65, 223, 0.6); }
+  100% { box-shadow: 0 10px 25px -5px rgba(77, 65, 223, 0.4); }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes glint {
+  0% { transform: translateX(-150%) skewX(-25deg); }
+  50%, 100% { transform: translateX(150%) skewX(-25deg); }
+}
+
+@keyframes slide-in-up {
+  0% { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  70% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s var(--ease-out) both;
+}
+
+.cta-pulse {
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+.float-badge {
+  animation: float 3s infinite ease-in-out;
+}
+
+.shimmer-pill {
+  background: linear-gradient(90deg, #ffffff 25%, #e3dfff 50%, #ffffff 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+.glint-effect {
+  position: relative;
+  overflow: hidden;
+}
+.glint-effect::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: glint 3s infinite;
+}
+
+.animate-slide-up {
+  animation: slide-in-up 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-pop-in {
+  animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 0;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Staggers */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up, .cta-pulse, .float-badge, .shimmer-pill, .animate-pulse, .animate-float, .animate-pop-in, .glint-effect::after, .animate-slide-up {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}

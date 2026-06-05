@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AttendanceHero - Leaderboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&amp;family=Inter:wght@400;500;600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Montserrat:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary": "#006762",
+                    "on-tertiary": "#ffffff",
+                    "primary-fixed": "#e3dfff",
+                    "secondary-fixed": "#ffdad8",
+                    "surface-container-highest": "#e1e3e4",
+                    "on-surface-variant": "#464555",
+                    "primary-fixed-dim": "#c4c0ff",
+                    "outline": "#777587",
+                    "error-container": "#ffdad6",
+                    "surface-variant": "#e1e3e4",
+                    "on-secondary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed": "#00201e",
+                    "on-surface": "#191c1d",
+                    "on-tertiary-fixed-variant": "#00504c",
+                    "secondary-container": "#ff6b6b",
+                    "on-secondary-container": "#6d0010",
+                    "inverse-on-surface": "#f0f1f2",
+                    "on-tertiary-container": "#f3fffd",
+                    "on-background": "#191c1d",
+                    "secondary-fixed-dim": "#ffb3b0",
+                    "secondary": "#ae2f34",
+                    "background": "#f8f9fa",
+                    "on-primary-fixed": "#100069",
+                    "tertiary-container": "#00837c",
+                    "surface-dim": "#d9dadb",
+                    "tertiary-fixed-dim": "#5dd9d0",
+                    "outline-variant": "#c7c4d8",
+                    "error": "#ba1a1a",
+                    "surface-container": "#edeeef",
+                    "surface-bright": "#f8f9fa",
+                    "on-error": "#ffffff",
+                    "on-secondary-fixed-variant": "#8c1520",
+                    "inverse-primary": "#c4c0ff",
+                    "primary": "#4d41df",
+                    "inverse-surface": "#2e3132",
+                    "on-error-container": "#93000a",
+                    "on-primary-fixed-variant": "#3622ca",
+                    "surface-container-high": "#e7e8e9",
+                    "on-secondary-fixed": "#410006",
+                    "tertiary-fixed": "#7cf6ec",
+                    "surface": "#f8f9fa",
+                    "on-primary-container": "#fffbff",
+                    "primary-container": "#675df9",
+                    "surface-tint": "#4f44e2",
+                    "on-primary": "#ffffff",
+                    "surface-container-low": "#f3f4f5"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "container-margin": "20px",
+                    "xl": "32px",
+                    "md": "16px",
+                    "lg": "24px",
+                    "sm": "12px",
+                    "gutter": "16px",
+                    "base": "8px",
+                    "xs": "4px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Montserrat"],
+                    "label-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-bold": ["Inter"],
+                    "display-hero": ["Montserrat"],
+                    "display-hero-mobile": ["Montserrat"],
+                    "body-lg": ["Inter"],
+                    "headline-md": ["Montserrat"]
+            },
+            "fontSize": {
+                    "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-bold": ["14px", {"lineHeight": "20px", "fontWeight": "700"}],
+                    "display-hero": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "display-hero-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "800"}],
+                    "body-lg": ["18px", {"lineHeight": "26px", "fontWeight": "500"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        
+        .bg-gold { background: linear-gradient(135deg, #FFD700 0%, #FFB800 100%); }
+        .bg-silver { background: linear-gradient(135deg, #C0C0C0 0%, #A9A9A9 100%); }
+        .bg-bronze { background: linear-gradient(135deg, #CD7F32 0%, #A0522D 100%); }
+        
+        .glow-primary { box-shadow: 0 0 15px rgba(77, 65, 223, 0.3); }
+        .glow-secondary { box-shadow: 0 0 15px rgba(255, 107, 107, 0.3); }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e1e3e4; border-radius: 10px; }
+
+        /* Shimmer effect for top 3 */
+        .shimmer {
+            position: relative;
+            overflow: hidden;
+        }
+        .shimmer::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -150%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.3) 50%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            transform: skewX(-20deg);
+            animation: shimmer-swipe 4s infinite;
+        }
+
+        @keyframes shimmer-swipe {
+            0% { left: -150%; }
+            20% { left: 150%; }
+            100% { left: 150%; }
+        }
+
+        /* Pulse animation for 'YOU' badge */
+        @keyframes pulse-soft {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .animate-pulse-badge {
+            animation: pulse-soft 2s infinite ease-in-out;
+        }
+
+        /* Hero entrance for trophy */
+        @keyframes trophy-entrance {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-trophy-hero {
+            animation: trophy-entrance 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* Prefer reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            .shimmer::after,
+            .animate-pulse-badge,
+            .animate-trophy-hero,
+            .leaderboard-row {
+                animation: none !important;
+                transition: none !important;
+                transform: none !important;
+                opacity: 1 !important;
+            }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24">
+<!-- Top AppBar -->
+<header class="bg-surface dark:bg-surface-container-low w-full rounded-b-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] sticky top-0 z-50">
+<div class="flex justify-between items-center px-container-margin py-md w-full max-w-[600px] mx-auto">
+<div class="flex items-center gap-2 transition-all duration-200 active:scale-95">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed" data-icon="school">school</span>
+<span class="text-headline-lg-mobile font-headline-lg-mobile font-extrabold text-primary dark:text-primary-fixed tracking-tight">AttendanceHero</span>
+</div>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container transition-all duration-200 active:scale-95">
+<img alt="Student Profile Avatar" class="w-full h-full object-cover" data-alt="A clean, minimalist vector avatar of a college student with glasses and a friendly expression, set against a solid pastel purple background. The visual style is modern, professional, and friendly, consistent with a high-energy educational mobile application interface using vibrant and clean primary colors." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7YNY6o5tSbO3NeQuTbIy3JsJPeF7gd9nGO6iulq6XXxdzwqb9riAUylcWnFk6RhECLSZO2Nk7YFyXbRBmTIPaZqNbq-QYRQoyqOiJtttpp1tNfco0dMQ2XtgjDXj-nhYWNoOatOBEA_1Qof4bvudDfOc_GkqyiHq3qxGniljgn-Mml3a6oBhKQAYdEnZ0ecGBoDsO6faIe0u8z0L3dsj7jWY9Ne0tm1BWgs3Ld6VlLP2lLHlDPIRHkcN7fAsjP4vTAHb9xjnVElg"/>
+</div>
+</div>
+</header>
+<main class="max-w-[600px] mx-auto px-container-margin pt-lg">
+<!-- Leaderboard Hero Header -->
+<div class="bg-secondary-container rounded-[24px] p-lg mb-lg flex items-center justify-between text-on-secondary-container glow-secondary relative overflow-hidden">
+<div class="absolute -right-4 -top-4 opacity-20">
+<span class="material-symbols-outlined text-[120px]" data-icon="emoji_events" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+</div>
+<div class="relative z-10">
+<h1 class="text-display-hero-mobile font-display-hero-mobile">Leaderboard</h1>
+<p class="text-label-bold font-label-bold opacity-90">Are you the top hero today?</p>
+</div>
+<div class="relative z-10 bg-white/20 p-sm rounded-full backdrop-blur-sm animate-trophy-hero">
+<span class="material-symbols-outlined text-[40px] text-white" data-icon="workspace_premium" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+</div>
+</div>
+<!-- Ranking Filter/Tabs -->
+<div class="flex gap-sm mb-md overflow-x-auto no-scrollbar py-xs">
+<button class="bg-primary text-on-primary px-lg py-sm rounded-full text-label-bold font-label-bold transition-all duration-300 active:scale-95">All Time</button>
+<button class="bg-surface-container-high text-on-surface-variant px-lg py-sm rounded-full text-label-bold font-label-bold hover:bg-primary-container/20 transition-all duration-300 active:scale-95">This Week</button>
+<button class="bg-surface-container-high text-on-surface-variant px-lg py-sm rounded-full text-label-bold font-label-bold hover:bg-primary-container/20 transition-all duration-300 active:scale-95">Friends</button>
+</div>
+<!-- Leaderboard List -->
+<div class="space-y-sm" id="leaderboard-list">
+<!-- Rank 1 -->
+<div class="leaderboard-row bg-gold/10 border border-gold/20 p-md rounded-[24px] flex items-center gap-md transition-all hover:scale-[1.02] active:scale-95 shimmer">
+<div class="w-8 flex justify-center text-headline-md font-headline-md text-[#B8860B]">1</div>
+<div class="relative">
+<img alt="Jane Doe Avatar" class="w-12 h-12 rounded-full border-2 border-white" data-alt="A professional and energetic vector avatar of a young woman with a warm smile and dark hair, styled for a modern educational app. The lighting is soft and flattering, with a clean aesthetic and a bright yellow background reflecting high achievement and success in a university environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA34VnqX9FFdaSMK1CiAOc6nPeKk_6EQtG239de6uYCNQaeqO-_V2nuU4f2L_LJBwfUUYqIahRSy0dEcaREeoZ3q8Bq4rJ_rEdR1qaQR97Di2AHA1677rB7_TOcksUbb_KdNXGXKu6eDLhw6KieqldAjXGFpsZ5gkTMMDJ9IIsE6J7ughPP6PkyWvMvsVaVkg3l_W2PgHoNZhY-VsyS_TJBW_ZdXzGx3LZ27iDtDEugTW-JfjZBnbMryJRZxP5t1nW3dm8w5zLE4n8"/>
+<span class="absolute -bottom-1 -right-1 bg-white rounded-full p-[2px] text-[12px]">🥇</span>
+</div>
+<div class="flex-1">
+<h3 class="text-body-lg font-headline-md text-on-surface">Jane Doe</h3>
+<div class="flex items-center gap-xs">
+<span class="text-label-sm font-label-sm text-secondary">🔥 12 Day Streak</span>
+</div>
+</div>
+<div class="text-right">
+<span class="text-headline-md font-headline-md text-primary">450</span>
+<p class="text-[10px] font-label-bold uppercase tracking-wider text-outline">pts</p>
+</div>
+</div>
+<!-- Rank 2 -->
+<div class="leaderboard-row bg-silver/10 border border-silver/20 p-md rounded-[24px] flex items-center gap-md transition-all hover:scale-[1.02] active:scale-95 shimmer">
+<div class="w-8 flex justify-center text-headline-md font-headline-md text-[#707070]">2</div>
+<div class="relative">
+<img alt="Mark Smith Avatar" class="w-12 h-12 rounded-full border-2 border-white" data-alt="A friendly male university student avatar with a casual hairstyle and blue hoodie, designed with clean lines and a vibrant modern aesthetic. The mood is approachable and focused, set against a soft gray-silver background that complements the achievement-focused UI of the attendance tracking application." src="https://lh3.googleusercontent.com/aida-public/AB6AXuClsKc6Ieiu44C6_90TuM79aukUWgqrTHPf7UUJXB-VMN8NsOgfqOviFgmf2leLRFuj4hZGpnD2bif0skpWyXWKYrUH2VCuiGjV27GUAfPmXNO6X6P3JKNUU2mXgBCEMzXoStOZcLETZP8Icfajb7XcOSxcQnUckyxpDkBlvnznQD3QphwLr-jF2hSB-0O9u2btA4UPV6g-b6gQydmnmB6xOctr2U5Etwuic3joZtgxEfkW1EBq3ePrIFSZHI-Tf_tAYtD_ZvBk5H8"/>
+<span class="absolute -bottom-1 -right-1 bg-white rounded-full p-[2px] text-[12px]">🥈</span>
+</div>
+<div class="flex-1">
+<h3 class="text-body-lg font-headline-md text-on-surface">Mark Smith</h3>
+<div class="flex items-center gap-xs">
+<span class="text-label-sm font-label-sm text-secondary">🔥 8 Day Streak</span>
+</div>
+</div>
+<div class="text-right">
+<span class="text-headline-md font-headline-md text-primary">420</span>
+<p class="text-[10px] font-label-bold uppercase tracking-wider text-outline">pts</p>
+</div>
+</div>
+<!-- Rank 3 -->
+<div class="leaderboard-row bg-bronze/10 border border-bronze/20 p-md rounded-[24px] flex items-center gap-md transition-all hover:scale-[1.02] active:scale-95 shimmer">
+<div class="w-8 flex justify-center text-headline-md font-headline-md text-[#8B4513]">3</div>
+<div class="relative">
+<img alt="Amy Lee Avatar" class="w-12 h-12 rounded-full border-2 border-white" data-alt="A stylized vector avatar of a cheerful young woman with bob-cut hair and a creative style, perfect for a high-energy university student demographic. The lighting is bright and optimistic, featuring a soft bronze or warm clay background to signify her top-three ranking in a gamified leaderboard." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRB2lGfOoYir30qQ3qda6wsJ_VSkZfCJ1cM8vdA6E2bqIbZOab_4mzurh0m1nMKcrovSJkdrBM67F-LJ5ZYMdYwjxy5TuMuoqVwR0ZbpFMp6mp1vAhbF_Gl8850fl6xClvXfYRW7v-sWFHOQMmX692pMGMmiVMqSmSo-BueDZNVHqdu_w2gv1SbWtHwpLVKk-UHo8bZA84Q1gca--G6RABzkByKw5tGBtgLiw8xj8BbJZ5dBuYc8YcLRYz13ORX_lzf5JaKj0sN-8"/>
+<span class="absolute -bottom-1 -right-1 bg-white rounded-full p-[2px] text-[12px]">🥉</span>
+</div>
+<div class="flex-1">
+<h3 class="text-body-lg font-headline-md text-on-surface">Amy Lee</h3>
+<div class="flex items-center gap-xs">
+<span class="text-label-sm font-label-sm text-secondary">🔥 10 Day Streak</span>
+</div>
+</div>
+<div class="text-right">
+<span class="text-headline-md font-headline-md text-primary">415</span>
+<p class="text-[10px] font-label-bold uppercase tracking-wider text-outline">pts</p>
+</div>
+</div>
+<!-- Spacer -->
+<div class="flex flex-col items-center py-2 gap-1 opacity-0" id="dots-spacer">
+<div class="w-1 h-1 bg-outline-variant rounded-full"></div>
+<div class="w-1 h-1 bg-outline-variant rounded-full"></div>
+<div class="w-1 h-1 bg-outline-variant rounded-full"></div>
+</div>
+<!-- Highlighted USER Row -->
+<div class="leaderboard-row bg-primary-container p-md rounded-[24px] flex items-center gap-md border-2 border-primary/20 glow-primary transition-all scale-[1.03] shadow-lg">
+<div class="w-8 flex justify-center text-headline-md font-headline-md text-on-primary-container">12</div>
+<div class="relative">
+<img alt="Alex Johnson Avatar" class="w-12 h-12 rounded-full border-2 border-white" data-alt="A clean, minimalist vector avatar of a college student with glasses and a friendly expression, set against a solid pastel purple background. The visual style is modern, professional, and friendly, consistent with a high-energy educational mobile application interface using vibrant and clean primary colors." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmGPFVAAaMkg5aUJhLN2BvApjkuO_Wpd0TV85ayhw0D1Chk4B0xjktsKqvWI4Xz49ZaFzD8xNev_EManm18MZUWoqzzPPZZ7tvFDc5S14ChgzBgZehfiAmsmwMxQrn7pWYjbn6IryJBnnXu0N5SYppwDPbOukSsSBL7XJ_lZKw-x7BVdOWKaQM13bHJXvc7WCjj7FvzZ_0fmJpiqWQIfbVviaclfTbJsYPI7rSzS-hpRMNrnp2CYB_3GIL0Ky0ZGWwtYp6ik_ovNo"/>
+<div class="absolute -top-1 -left-1 bg-secondary text-[8px] text-white font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter animate-pulse-badge">You</div>
+</div>
+<div class="flex-1">
+<h3 class="text-body-lg font-headline-md text-on-primary-container">Alex Johnson</h3>
+<div class="flex items-center gap-xs">
+<span class="text-label-sm font-label-sm text-on-primary-container">🔥 12 Day Streak</span>
+</div>
+</div>
+<div class="text-right">
+<span class="text-headline-md font-headline-md text-on-primary-container">210</span>
+<p class="text-[10px] font-label-bold uppercase tracking-wider text-on-primary-container opacity-70">pts</p>
+</div>
+</div>
+<!-- Rank 13+ -->
+<div class="leaderboard-row bg-surface-container-low p-md rounded-[24px] flex items-center gap-md opacity-60 transition-all active:scale-95">
+<div class="w-8 flex justify-center text-label-bold font-label-bold text-on-surface-variant">13</div>
+<div class="relative">
+<img alt="Student Avatar" class="w-10 h-10 rounded-full grayscale" data-alt="A minimalist vector avatar of a male student with short hair, rendered in a simple clean style suitable for background list items. The lighting is neutral and the colors are muted, maintaining the professional but energetic vibe of the student dashboard." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5-kXMc7RU3en05q9Uly7YAUrFlAwtMVuNiUwZRO_kHQ1AjMfgJVwycNaspmQ-5jClk7mtfw051rXz_HG94Y89lSDcUxKBVScvvKAZiWuHQEWYutiIJHjLF6W_5iX3bgLYn5kkuOYVVNbhp7w9kqpmPcRd7msvPEb1jVO0Ve-fn6uQ9ChSb4-lPTWWRaaYP3FGaQAGv6rsz4xrV1T6zFQnYeJl2xfv8kHpJ80AQ7EeoVB9PVkGyEXT-g12KTj_XD9WE_7-JomN8-8"/>
+</div>
+<div class="flex-1">
+<h3 class="text-label-bold font-label-bold text-on-surface-variant">Tom Baker</h3>
+<div class="flex items-center gap-xs">
+<span class="text-[10px] font-label-sm text-outline">🔥 4 Day Streak</span>
+</div>
+</div>
+<div class="text-right">
+<span class="text-label-bold font-label-bold text-on-surface-variant">195</span>
+<p class="text-[8px] font-label-bold uppercase text-outline">pts</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] flex justify-around items-center py-sm px-md pb-safe bg-surface-container-low dark:bg-inverse-surface rounded-t-xl z-50 shadow-lg">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-5 py-1.5 transition-all duration-300 ease-out active:scale-90 hover:bg-surface-container-high dark:hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="text-label-sm font-label-sm">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary-container text-on-primary-container dark:text-on-primary-container rounded-full px-5 py-1.5 shadow-[0_0_10px_rgba(77,65,223,0.4)] transition-all duration-300 ease-out active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard" style="font-variation-settings: 'FILL' 1;">leaderboard</span>
+<span class="text-label-sm font-label-sm">Leaderboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-5 py-1.5 transition-all duration-300 ease-out active:scale-90 hover:bg-surface-container-high dark:hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-label-sm font-label-sm">Profile</span>
+</a>
+</nav>
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            
+            // Staggered entrance animation for rows
+            const rows = document.querySelectorAll('.leaderboard-row');
+            const spacer = document.getElementById('dots-spacer');
+            
+            if (!prefersReducedMotion) {
+                rows.forEach((row, index) => {
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateY(30px)';
+                    setTimeout(() => {
+                        row.style.transition = 'all 0.5s cubic-bezier(0.22, 1, 0.36, 1)';
+                        row.style.opacity = '1';
+                        row.style.transform = 'translateY(0)';
+                    }, 100 * index);
+                });
+
+                // Animate spacer dots too
+                setTimeout(() => {
+                    spacer.style.transition = 'opacity 0.5s ease';
+                    spacer.style.opacity = '1';
+                }, 100 * 3.5);
+            } else {
+                rows.forEach(row => {
+                    row.style.opacity = '1';
+                    row.style.transform = 'none';
+                });
+                spacer.style.opacity = '1';
+            }
+
+            // Tab active states simulation for smooth transition demo
+            const tabs = document.querySelectorAll('.flex.gap-sm button');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => {
+                        t.classList.remove('bg-primary', 'text-on-primary');
+                        t.classList.add('bg-surface-container-high', 'text-on-surface-variant');
+                    });
+                    tab.classList.remove('bg-surface-container-high', 'text-on-surface-variant');
+                    tab.classList.add('bg-primary', 'text-on-primary');
+                    
+                    // Simple refresh animation for list when switching tabs
+                    if (!prefersReducedMotion) {
+                        const list = document.getElementById('leaderboard-list');
+                        list.style.transition = 'opacity 0.2s ease';
+                        list.style.opacity = '0.5';
+                        setTimeout(() => {
+                            list.style.opacity = '1';
+                        }, 200);
+                    }
+                });
+            });
+        });
+    </script>
+</body></html>
