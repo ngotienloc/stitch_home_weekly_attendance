@@ -27,19 +27,19 @@ export const ALL_GAMES: Game[] = [
   { id: 1,  name: 'Điểm danh nhanh nhất',   icon: '🏃', description: 'Người đầu tiên nhấn khi lớp học bắt đầu!',        points: 15, colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 1  },
   { id: 2,  name: 'Câu hỏi bí mật',          icon: '🙋', description: 'Trả lời câu hỏi trực tiếp từ giảng viên.',        points: 10, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 2  },
   { id: 3,  name: 'Điểm danh cùng GV',       icon: '🤝', description: 'Quét mã QR trực tiếp với giảng viên.',             points: 10, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 3  },
-  { id: 4,  name: 'Thử thách nhóm',          icon: '👥', description: 'Hoàn thành nhiệm vụ cùng nhóm trong lớp.',         points: 20, colorClass: 'bg-primary-fixed-dim',  enabled: false, order: 4  },
-  { id: 5,  name: 'Đoán từ khóa bài học',   icon: '🔍', description: 'Đoán từ khóa chính của bài học hôm nay.',          points: 15, colorClass: 'bg-secondary-fixed',     enabled: false, order: 5  },
-  { id: 6,  name: 'Giơ tay trả lời',         icon: '✋', description: 'Trả lời câu hỏi bất ngờ trong buổi học.',          points: 10, colorClass: 'bg-tertiary-fixed',      enabled: false, order: 6  },
-  { id: 7,  name: 'Khảo sát phản hồi',       icon: '📊', description: 'Điền khảo sát nhanh cuối buổi học.',               points: 5,  colorClass: 'bg-primary-fixed-dim',  enabled: false, order: 7  },
-  { id: 8,  name: 'Chuỗi điểm danh 🔥',     icon: '🔥', description: 'Duy trì chuỗi điểm danh liên tục không gián đoạn.',points: 10, colorClass: 'bg-secondary-fixed',     enabled: false, order: 8  },
-  { id: 9,  name: 'Mini Quiz',               icon: '🧠', description: 'Trả lời 3 câu trắc nghiệm về bài học.',            points: 15, colorClass: 'bg-tertiary-fixed',      enabled: false, order: 9  },
-  { id: 10, name: 'Thách đấu 1-1',           icon: '⚔️', description: 'Thi đấu trực tiếp với bạn ngồi cạnh.',             points: 25, colorClass: 'bg-primary-fixed-dim',  enabled: false, order: 10 },
-  { id: 11, name: 'Bình chọn ý tưởng',       icon: '💡', description: 'Bình chọn ý tưởng hay nhất từ các nhóm.',          points: 10, colorClass: 'bg-secondary-fixed',     enabled: false, order: 11 },
-  { id: 12, name: 'Nộp bài nhanh',           icon: '📝', description: 'Nộp bài tập trước giờ học kết thúc.',              points: 10, colorClass: 'bg-tertiary-fixed',      enabled: false, order: 12 },
-  { id: 13, name: 'Kể chuyện 30 giây',       icon: '🎤', description: 'Thuyết trình ngắn về điều học được hôm nay.',       points: 15, colorClass: 'bg-primary-fixed-dim',  enabled: false, order: 13 },
-  { id: 14, name: 'Bonus tuần đặc biệt',     icon: '⭐', description: 'Điểm thưởng đặc biệt, chỉ mở vào tuần quan trọng!',points: 50, colorClass: 'bg-secondary-fixed',     enabled: false, order: 14 },
-  { id: 15, name: 'Ôn tập bài cũ',           icon: '📚', description: 'Trả lời câu hỏi về nội dung buổi học trước.',       points: 10, colorClass: 'bg-tertiary-fixed',      enabled: false, order: 15 },
-  { id: 16, name: 'Chia sẻ học được gì',     icon: '💬', description: 'Chia sẻ điều mới học được với cả lớp hôm nay.',    points: 5,  colorClass: 'bg-primary-fixed-dim',  enabled: false, order: 16 },
+  { id: 4,  name: 'Thử thách nhóm',          icon: '👥', description: 'Hoàn thành nhiệm vụ cùng nhóm trong lớp.',         points: 20, colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 4  },
+  { id: 5,  name: 'Đoán từ khóa bài học',   icon: '🔍', description: 'Đoán từ khóa chính của bài học hôm nay.',          points: 15, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 5  },
+  { id: 6,  name: 'Giơ tay trả lời',         icon: '✋', description: 'Trả lời câu hỏi bất ngờ trong buổi học.',          points: 10, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 6  },
+  { id: 7,  name: 'Khảo sát phản hồi',       icon: '📊', description: 'Điền khảo sát nhanh cuối buổi học.',               points: 5,  colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 7  },
+  { id: 8,  name: 'Chuỗi điểm danh 🔥',     icon: '🔥', description: 'Duy trì chuỗi điểm danh liên tục không gián đoạn.',points: 10, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 8  },
+  { id: 9,  name: 'Mini Quiz',               icon: '🧠', description: 'Trả lời 3 câu trắc nghiệm về bài học.',            points: 15, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 9  },
+  { id: 10, name: 'Thách đấu 1-1',           icon: '⚔️', description: 'Thi đấu trực tiếp với bạn ngồi cạnh.',             points: 25, colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 10 },
+  { id: 11, name: 'Bình chọn ý tưởng',       icon: '💡', description: 'Bình chọn ý tưởng hay nhất từ các nhóm.',          points: 10, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 11 },
+  { id: 12, name: 'Nộp bài nhanh',           icon: '📝', description: 'Nộp bài tập trước giờ học kết thúc.',              points: 10, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 12 },
+  { id: 13, name: 'Kể chuyện 30 giây',       icon: '🎤', description: 'Thuyết trình ngắn về điều học được hôm nay.',       points: 15, colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 13 },
+  { id: 14, name: 'Bonus tuần đặc biệt',     icon: '⭐', description: 'Điểm thưởng đặc biệt, chỉ mở vào tuần quan trọng!',points: 50, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 14 },
+  { id: 15, name: 'Ôn tập bài cũ',           icon: '📚', description: 'Trả lời câu hỏi về nội dung buổi học trước.',       points: 10, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 15 },
+  { id: 16, name: 'Chia sẻ học được gì',     icon: '💬', description: 'Chia sẻ điều mới học được với cả lớp hôm nay.',    points: 5,  colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 16 },
 ];
 
 // ─── Teacher Settings ─────────────────────────────────────────────────────────
@@ -51,15 +51,30 @@ export interface TeacherSettings {
 
 export const DEFAULT_TEACHER_SETTINGS: TeacherSettings = {
   currentWeek: 1,
-  sessionOpen: false,
+  sessionOpen: true,
   games: ALL_GAMES.map(g => ({ ...g })),
 };
 
 export function getTeacherSettings(): TeacherSettings {
   if (typeof window === 'undefined') return { ...DEFAULT_TEACHER_SETTINGS, games: ALL_GAMES.map(g => ({ ...g })) };
   const str = localStorage.getItem('mock_teacher_settings');
-  if (!str) return { ...DEFAULT_TEACHER_SETTINGS, games: ALL_GAMES.map(g => ({ ...g })) };
-  try { return JSON.parse(str); } catch { return { ...DEFAULT_TEACHER_SETTINGS, games: ALL_GAMES.map(g => ({ ...g })) }; }
+  if (!str) {
+    const s = { ...DEFAULT_TEACHER_SETTINGS, sessionOpen: true, games: ALL_GAMES.map(g => ({ ...g })) };
+    localStorage.setItem('mock_teacher_settings', JSON.stringify(s));
+    return s;
+  }
+  try {
+    const parsed = JSON.parse(str);
+    parsed.sessionOpen = true; // Force open
+    if (parsed.games) {
+      parsed.games = parsed.games.map((g: any) => ({ ...g, enabled: true }));
+    } else {
+      parsed.games = ALL_GAMES.map(g => ({ ...g }));
+    }
+    return parsed;
+  } catch {
+    return { ...DEFAULT_TEACHER_SETTINGS, sessionOpen: true, games: ALL_GAMES.map(g => ({ ...g })) };
+  }
 }
 
 export function saveTeacherSettings(settings: TeacherSettings): void {

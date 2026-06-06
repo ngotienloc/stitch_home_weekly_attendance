@@ -13,6 +13,7 @@ export default function HomePage() {
   const supabase = createClient();
 
   const [userId,         setUserId]         = useState<string | null>(null);
+  const [selectedWeek,   setSelectedWeek]   = useState<number | null>(null);
   const [checkedIn,      setCheckedIn]      = useState(false);
   const [streak,         setStreak]         = useState(0);
   const [loading,        setLoading]        = useState(false);
@@ -22,6 +23,8 @@ export default function HomePage() {
   const [activeGame,     setActiveGame]     = useState<any>(null);
   // Safe default — localStorage only loaded after mount to avoid SSR mismatch
   const [teacherSettings, setTeacherSettings] = useState<TeacherSettings>({ ...DEFAULT_TEACHER_SETTINGS, games: ALL_GAMES.map(g => ({ ...g })) });
+
+  const activeWeek = selectedWeek ?? teacherSettings.currentWeek;
 
   // ── Sync teacher settings every 3s ─────────────────────────────────────────
   const refreshSettings = useCallback(() => {
@@ -38,7 +41,7 @@ export default function HomePage() {
     };
   }, [refreshSettings]);
 
-  // ── Auth + initial state ───────────────────────────────────────────────────
+  // ── Auth + initial state + check-in update on activeWeek change ────────────────
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -52,24 +55,15 @@ export default function HomePage() {
       const { data: profile } = await supabase.from('profiles').select('streak').eq('id', user.id).single();
       if (profile) setStreak(profile.streak);
 
-      const currentWeek = getTeacherSettings().currentWeek;
-      const { data: cis } = await supabase.from('check_ins').select('*').eq('user_id', user.id).eq('week_number', currentWeek);
-      if (cis && cis.length > 0) setCheckedIn(true);
+      const { data: cis } = await supabase.from('check_ins').select('*').eq('user_id', user.id).eq('week_number', activeWeek);
+      setCheckedIn(!!(cis && cis.length > 0));
     }
     init();
-  }, []);
-
-  // Re-check check-in status when teacher changes week
-  useEffect(() => {
-    if (!userId) return;
-    supabase.from('check_ins').select('*').eq('user_id', userId).eq('week_number', teacherSettings.currentWeek).then(({ data }: { data: any }) => {
-      setCheckedIn(!!(data && data.length > 0));
-    });
-  }, [teacherSettings.currentWeek, userId]);
+  }, [activeWeek, userId]);
 
   // ── Check-in handler ───────────────────────────────────────────────────────
   const handleCheckIn = async (game?: Game, earnedPts?: number) => {
-    if (checkedIn || loading || !teacherSettings.sessionOpen) return;
+    if (loading || !teacherSettings.sessionOpen) return;
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -82,7 +76,7 @@ export default function HomePage() {
         subject: SUBJECT_NAME,
         game_name: gameName,
         points_earned: pts,
-        week_number: teacherSettings.currentWeek,
+        week_number: activeWeek,
         is_bonus: (pts >= 50),
       };
 
@@ -103,7 +97,7 @@ export default function HomePage() {
 
   const sortedGames      = [...teacherSettings.games].sort((a, b) => a.order - b.order);
   const enabledGames     = sortedGames.filter(g => g.enabled);
-  const { currentWeek, sessionOpen } = teacherSettings;
+  const { sessionOpen }  = teacherSettings;
 
   // ── Colour helpers ──────────────────────────────────────────────────────────
   const pointsBadgeColor = (pts: number) => {
@@ -126,7 +120,7 @@ export default function HomePage() {
             <h2 className="text-xl font-extrabold font-display-hero mb-md leading-snug">{SUBJECT_NAME}</h2>
 
             <div className="flex justify-between items-end mb-sm">
-              <span className="text-sm font-bold">Tuần {currentWeek} / {TOTAL_WEEKS}</span>
+              <span className="text-sm font-bold">Tuần {activeWeek} / {TOTAL_WEEKS}</span>
               <span className="float-badge text-xs font-semibold bg-white/20 px-sm py-xs rounded-full flex items-center gap-1">
                 <span className="inline-block animate-bounce">🔥</span> Chuỗi {streak} ngày
               </span>
@@ -136,17 +130,22 @@ export default function HomePage() {
             <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-2">
               {Array.from({ length: TOTAL_WEEKS }, (_, i) => i + 1).map(w => {
                 let cls = 'bg-white/20';
-                if (w < currentWeek || (w === currentWeek && checkedIn)) cls = 'bg-tertiary-fixed shadow-sm';
-                else if (w === currentWeek && !checkedIn) cls = 'shimmer-pill ring-4 ring-white/30';
+                if (w < activeWeek || (w === activeWeek && checkedIn)) cls = 'bg-tertiary-fixed shadow-sm';
+                else if (w === activeWeek && !checkedIn) cls = 'shimmer-pill ring-4 ring-white/30';
+                const isSelected = w === activeWeek;
                 return (
-                  <div
+                  <button
                     key={w}
-                    className={`flex-shrink-0 h-3 rounded-full transition-all duration-300 ${w === currentWeek && !checkedIn ? 'w-12' : 'w-8'} ${cls}`}
+                    onClick={() => setSelectedWeek(w)}
+                    className={`flex-shrink-0 h-3.5 rounded-full transition-all duration-300 cursor-pointer ${
+                      isSelected ? 'w-12 ring-2 ring-white' : 'w-8'
+                    } ${cls}`}
                     title={`Tuần ${w}`}
                   />
                 );
               })}
             </div>
+            <p className="text-[10px] opacity-75 mt-xs text-center font-medium italic">💡 Nhấp vào các thanh kén ở trên để chuyển đổi nhanh giữa 16 tuần</p>
           </div>
         </section>
 
@@ -154,7 +153,7 @@ export default function HomePage() {
         <section className="mb-lg">
           <div className="flex justify-between items-center mb-md">
             <h3 className="text-xl font-extrabold text-on-surface font-display-hero tracking-tight">
-              Thử thách tuần {currentWeek}
+              Thử thách tuần {activeWeek}
             </h3>
             <div
               onClick={() => router.push('/leaderboard')}
@@ -170,7 +169,7 @@ export default function HomePage() {
             <div className="flex flex-col items-center justify-center py-10 bg-surface-container rounded-2xl border-2 border-dashed border-outline-variant/30 text-center animate-fade-in-up">
               <span className="text-5xl mb-md">🔒</span>
               <h4 className="font-extrabold text-on-surface text-base mb-xs">Buổi học chưa mở</h4>
-              <p className="text-sm text-on-surface-variant font-medium">Giảng viên chưa mở buổi điểm danh tuần {currentWeek}.<br />Vui lòng chờ giảng viên bắt đầu.</p>
+              <p className="text-sm text-on-surface-variant font-medium">Giảng viên chưa mở buổi điểm danh tuần {activeWeek}.<br />Vui lòng chờ giảng viên bắt đầu.</p>
             </div>
           ) : enabledGames.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 bg-surface-container rounded-2xl border border-outline-variant/20 text-center">
@@ -182,12 +181,8 @@ export default function HomePage() {
               {enabledGames.map((game, idx) => (
                 <div
                   key={game.id}
-                  onClick={() => { if (!checkedIn) setActiveGame(game); }}
-                  className={`animate-fade-in-up bg-white p-md rounded-xxl flex items-center gap-md border border-outline-variant/20 shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-all duration-200 ${
-                    checkedIn
-                      ? 'opacity-50 cursor-default'
-                      : 'active:scale-95 hover:shadow-md cursor-pointer'
-                  }`}
+                  onClick={() => setActiveGame(game)}
+                  className="animate-fade-in-up bg-white p-md rounded-xxl flex items-center gap-md border border-outline-variant/20 shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-all duration-200 active:scale-95 hover:shadow-md cursor-pointer"
                   style={{ animationDelay: `${0.05 * idx}s` }}
                 >
                   <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-[28px] select-none ${game.colorClass}`}>
@@ -202,7 +197,7 @@ export default function HomePage() {
                     </div>
                     <p className="text-xs text-on-surface-variant mt-xs leading-tight font-medium">{game.description}</p>
                   </div>
-                  {!checkedIn && <span className="material-symbols-outlined text-primary text-[20px] opacity-60">play_circle</span>}
+                  <span className="material-symbols-outlined text-primary text-[20px] opacity-60">play_circle</span>
                 </div>
               ))}
               </div>
@@ -262,7 +257,7 @@ export default function HomePage() {
 
             <h3 className="text-2xl font-bold font-display-hero text-primary tracking-tight">Đã Hoàn Thành!</h3>
             <p className="text-on-surface font-semibold mt-xs text-sm">{lastGame}</p>
-            <p className="text-on-surface-variant text-xs">{SUBJECT_NAME} • Tuần {currentWeek}</p>
+            <p className="text-on-surface-variant text-xs">{SUBJECT_NAME} • Tuần {activeWeek}</p>
 
             <div className="my-lg space-y-md bg-surface-container-low p-md rounded-xl border border-outline-variant/20">
               <div className="flex justify-between items-center px-sm">
@@ -289,7 +284,7 @@ export default function HomePage() {
       {activeGame && (
         <GameModal
           game={activeGame}
-          weekNumber={teacherSettings.currentWeek}
+          weekNumber={activeWeek}
           streak={streak}
           onComplete={(earnedPts) => {
             setActiveGame(null);
