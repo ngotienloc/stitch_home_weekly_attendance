@@ -23,6 +23,7 @@ export default function TeacherPage() {
   const [saving, setSaving]           = useState(false);
   const [savedMsg, setSavedMsg]       = useState(false);
   const [mounted, setMounted]         = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
 
   // Auth guard + load real settings after mount
   useEffect(() => {
@@ -177,16 +178,27 @@ export default function TeacherPage() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={toggleSession}
-              className={`px-lg py-sm rounded-full font-extrabold text-sm transition-all duration-300 active:scale-95 shadow-md ${
-                settings.sessionOpen
-                  ? 'bg-error text-white hover:bg-error/90'
-                  : 'bg-primary text-white hover:bg-primary/90 cta-pulse'
-              }`}
-            >
-              {settings.sessionOpen ? 'Đóng buổi' : 'Mở buổi'}
-            </button>
+            <div className="flex gap-2">
+              {settings.sessionOpen && (
+                <button
+                  onClick={() => setShowQRModal(true)}
+                  className="px-lg py-sm rounded-full font-extrabold text-sm bg-tertiary text-on-tertiary hover:bg-tertiary/90 transition-all active:scale-95 shadow-md flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[18px]">qr_code</span>
+                  Mã QR
+                </button>
+              )}
+              <button
+                onClick={toggleSession}
+                className={`px-lg py-sm rounded-full font-extrabold text-sm transition-all duration-300 active:scale-95 shadow-md ${
+                  settings.sessionOpen
+                    ? 'bg-error text-white hover:bg-error/90'
+                    : 'bg-primary text-white hover:bg-primary/90 cta-pulse'
+                }`}
+              >
+                {settings.sessionOpen ? 'Đóng buổi' : 'Mở buổi'}
+              </button>
+            </div>
           </section>
         )}
 
@@ -306,6 +318,52 @@ export default function TeacherPage() {
 
         <div className="pb-lg" />
       </main>
+
+      {/* QR Code modal popup for Teacher */}
+      {showQRModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-container-lowest rounded-xxl w-full max-w-[400px] shadow-2xl border border-outline-variant/20 overflow-hidden animate-pop-in relative p-lg text-center space-y-lg">
+            {/* Header */}
+            <div className="flex justify-between items-center pb-md border-b border-outline-variant/20">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-2xl">qr_code_2</span>
+                <h3 className="font-extrabold text-base text-on-surface">Mã QR Điểm Danh</h3>
+              </div>
+              <button onClick={() => setShowQRModal(false)} className="text-on-surface-variant hover:text-on-surface active:scale-90 transition-all">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {/* QR Content */}
+            <div className="space-y-md flex flex-col items-center">
+              <p className="text-sm font-semibold text-on-surface-variant">
+                Sinh viên quét mã này để hoàn tất <span className="text-primary font-bold">Điểm danh cùng GV</span>
+              </p>
+              
+              <div className="bg-white p-md rounded-2xl border border-outline-variant/40 shadow-lg">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=StitchHomeWeeklyAttendance_Teacher_CheckIn_Week_${settings.currentWeek}`}
+                  alt="Teacher Attendance QR Code"
+                  className="w-56 h-56 select-none"
+                />
+              </div>
+
+              <div className="bg-primary-container/30 px-md py-sm rounded-xl border border-primary/20">
+                <p className="text-xs font-bold text-primary">TUẦN HỌC: {settings.currentWeek}</p>
+                <p className="text-[10px] text-on-surface-variant mt-0.5">Môn: {SUBJECT_NAME}</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <button
+              onClick={() => setShowQRModal(false)}
+              className="w-full py-md bg-primary text-on-primary font-bold rounded-xl hover:bg-primary/95 transition-all active:scale-95 shadow-md"
+            >
+              Đóng cửa sổ
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

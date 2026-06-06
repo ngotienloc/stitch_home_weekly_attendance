@@ -134,27 +134,84 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     </Wrap>
   );
 
-  // ── GAME 3: Entry Code ─────────────────────────────────────────────────────
-  if (game.id === 3) return (
-    <Wrap>
-      <div className="space-y-lg text-center">
-        <div><p className="text-sm text-on-surface-variant font-medium mb-sm">Nhập mã code từ giảng viên:</p>
-          <div className="flex justify-center gap-sm">
-            {codeInput.map((v,i)=>(
-              <input key={i} id={`c${i}`} maxLength={1} value={v} onChange={e=>{
-                const n=[...codeInput]; n[i]=e.target.value.replace(/\D/,''); setCode(n); setCodeErr(false);
-                if(e.target.value&&i<3) document.getElementById(`c${i+1}`)?.focus();
-              }} className={`w-14 h-14 text-center text-2xl font-extrabold rounded-xl border-2 outline-none transition-all ${codeErr?'border-error bg-error-container/10':'border-outline-variant/40 focus:border-primary bg-surface-container-low'}`}/>
-            ))}
+  // ── GAME 3: QR Code Attendance ─────────────────────────────────────────────
+  if (game.id === 3) {
+    const qrTab = selected === null ? 0 : selected;
+    return (
+      <Wrap>
+        <div className="space-y-lg text-center">
+          {/* Tab selector */}
+          <div className="flex bg-surface-container-low p-1 rounded-xl border border-outline-variant/30">
+            <button
+              onClick={() => setSelected(0)}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                qrTab === 0 ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              📷 Quét mã GV
+            </button>
+            <button
+              onClick={() => setSelected(1)}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                qrTab === 1 ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              📱 Mã QR của tôi
+            </button>
           </div>
-          {codeErr&&<p className="text-error text-sm font-semibold mt-sm">Mã không đúng, thử lại!</p>}
+
+          {qrTab === 0 ? (
+            <div className="space-y-md">
+              <p className="text-sm text-on-surface-variant font-medium">Đặt mã QR của Giảng viên vào khung quét:</p>
+              
+              {searching ? (
+                <div className="space-y-md">
+                  <div className="relative w-48 h-48 mx-auto border-4 border-green-500/30 rounded-xl overflow-hidden bg-black/20 flex items-center justify-center shadow-inner">
+                    {/* Glowing grid */}
+                    <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(34,197,94,0.1)_1px,transparent_1px),linear-gradient(to_right,rgba(34,197,94,0.1)_1px,transparent_1px)] bg-[size:16px_16px] animate-pulse" />
+                    {/* Laser line */}
+                    <div className="absolute left-0 right-0 h-1 bg-green-500 shadow-[0_0_12px_#22c55e] top-0 animate-[bounce_1.5s_infinite]" />
+                    <span className="material-symbols-outlined text-5xl text-green-500/40 animate-pulse">qr_code_scanner</span>
+                  </div>
+                  <p className="text-xs text-green-600 font-bold animate-pulse">Đang quét mã QR của giảng viên...</p>
+                </div>
+              ) : (
+                <div className="space-y-md">
+                  <div className="relative w-48 h-48 mx-auto border-4 border-outline-variant/40 rounded-xl overflow-hidden bg-surface-container-low flex items-center justify-center shadow-inner">
+                    <span className="material-symbols-outlined text-6xl text-outline/50">photo_camera</span>
+                  </div>
+                  <Btn onClick={() => {
+                    setSearching(true);
+                    setTimeout(() => {
+                      setSearching(false);
+                      finish(10);
+                    }, 2000);
+                  }}>
+                    📸 Bắt đầu quét QR (+10 điểm)
+                  </Btn>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-md flex flex-col items-center">
+              <p className="text-sm text-on-surface-variant font-medium">Đưa mã QR này cho giảng viên quét:</p>
+              <div className="bg-white p-sm rounded-xl border border-outline-variant/40 shadow-md">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=StitchHomeWeeklyAttendance_Student_${streak}_Week_${weekNumber}`}
+                  alt="Student Attendance QR"
+                  className="w-40 h-40 select-none pointer-events-none"
+                />
+              </div>
+              <p className="text-[11px] text-on-surface-variant italic font-medium">Mã điểm danh Tuần {weekNumber} • Chuỗi {streak} ngày</p>
+              <Btn onClick={() => finish(10)}>
+                🤝 GV đã quét xong (+10 điểm)
+              </Btn>
+            </div>
+          )}
         </div>
-        <Btn onClick={()=>{ if(codeInput.join('')===gc.entryCode) finish(10); else setCodeErr(true); }}>
-          Xác nhận mã (+10 điểm)
-        </Btn>
-      </div>
-    </Wrap>
-  );
+      </Wrap>
+    );
+  }
 
   // ── GAME 4: Team Challenge ─────────────────────────────────────────────────
   if (game.id === 4) return (
