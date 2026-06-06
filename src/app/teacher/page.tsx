@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient, getTeacherSettings, saveTeacherSettings, SUBJECT_NAME, TOTAL_WEEKS, TEACHER_ID, DEFAULT_TEACHER_SETTINGS, ALL_GAMES } from '@/utils/supabase/client';
+import { createClient, isMockEnabled, getTeacherSettings, saveTeacherSettings, SUBJECT_NAME, TOTAL_WEEKS, TEACHER_ID, DEFAULT_TEACHER_SETTINGS, ALL_GAMES } from '@/utils/supabase/client';
 import type { TeacherSettings, Game } from '@/utils/supabase/client';
 
 interface CheckedInStudent {
@@ -36,24 +36,62 @@ export default function TeacherPage() {
   }, []);
 
   // Load checked-in students for current week
-  const loadStudents = useCallback(() => {
+  const loadStudents = useCallback(async () => {
     const s = getTeacherSettings();
-    const checkIns: any[] = JSON.parse(localStorage.getItem('mock_check_ins') || '[]');
-    const profiles: any[] = JSON.parse(localStorage.getItem('mock_profiles') || '[]');
-    const weekCheckIns = checkIns.filter((c: any) => c.week_number === s.currentWeek);
-    const result: CheckedInStudent[] = weekCheckIns.map((c: any) => {
-      const profile = profiles.find((p: any) => p.id === c.user_id);
-      return {
-        id: c.id,
-        full_name: profile?.full_name || 'Sinh viên',
-        avatar_url: profile?.avatar_url || null,
-        points_earned: c.points_earned,
-        game_name: c.game_name || 'Điểm danh',
-        created_at: c.created_at,
-      };
-    });
-    setStudents(result);
-  }, []);
+    if (isMockEnabled) {
+      const checkIns: any[] = JSON.parse(localStorage.getItem('mock_check_ins') || '[]');
+      const profiles: any[] = JSON.parse(localStorage.getItem('mock_profiles') || '[]');
+      const weekCheckIns = checkIns.filter((c: any) => c.week_number === s.currentWeek);
+      const result: CheckedInStudent[] = weekCheckIns.map((c: any) => {
+        const profile = profiles.find((p: any) => p.id === c.user_id);
+        return {
+          id: c.id,
+          full_name: profile?.full_name || 'Sinh viên',
+          avatar_url: profile?.avatar_url || null,
+          points_earned: c.points_earned,
+          game_name: c.game_name || 'Điểm danh',
+          created_at: c.created_at,
+        };
+      });
+      setStudents(result);
+    } else {
+      try {
+        const { data, error } = await supabase
+          .from('check_ins')
+          .select(`
+            id,
+            points_earned,
+            game_name,
+            created_at,
+            profiles (
+              id,
+              full_name,
+              avatar_url
+            )
+          `)
+          .eq('week_number', s.currentWeek);
+
+        if (error) throw error;
+
+        if (data) {
+          const result: CheckedInStudent[] = (data as any[]).map((c: any) => {
+            const profile = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles;
+            return {
+              id: c.id,
+              full_name: profile?.full_name || 'Sinh viên',
+              avatar_url: profile?.avatar_url || null,
+              points_earned: c.points_earned,
+              game_name: c.game_name || 'Điểm danh',
+              created_at: c.created_at,
+            };
+          });
+          setStudents(result);
+        }
+      } catch (err) {
+        console.error('Failed to load checked in students:', err);
+      }
+    }
+  }, [supabase]);
 
   useEffect(() => {
     loadStudents();
