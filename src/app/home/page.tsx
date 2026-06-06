@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 import GameModal from '@/components/games/GameModal';
-import { createClient, getTeacherSettings, SUBJECT_NAME, TOTAL_WEEKS, DEFAULT_TEACHER_SETTINGS, ALL_GAMES } from '@/utils/supabase/client';
+import { createClient, isMockEnabled, getTeacherSettings, SUBJECT_NAME, TOTAL_WEEKS, DEFAULT_TEACHER_SETTINGS, ALL_GAMES } from '@/utils/supabase/client';
 import type { TeacherSettings, Game } from '@/utils/supabase/client';
 
 export default function HomePage() {
@@ -26,20 +26,64 @@ export default function HomePage() {
 
   const activeWeek = selectedWeek ?? teacherSettings.currentWeek;
 
-  // ── Sync teacher settings every 3s ─────────────────────────────────────────
-  const refreshSettings = useCallback(() => {
-    setTeacherSettings(getTeacherSettings());
-  }, []);
+  // ── Sync teacher settings ─────────────────────────────────────────
+  const refreshSettings = useCallback(async () => {
+    if (isMockEnabled) {
+      setTeacherSettings(getTeacherSettings());
+    } else {
+      try {
+        const { data, error } = await supabase
+          .from('teacher_settings')
+          .select('*')
+          .eq('id', 1)
+          .single();
+        if (error) throw error;
+        if (data) {
+          setTeacherSettings({
+            currentWeek: data.current_week,
+            sessionOpen: data.session_open,
+            games: ALL_GAMES.map(g => ({ ...g })),
+          });
+        }
+      } catch (err) {
+        console.error('Failed to sync settings from Supabase:', err);
+      }
+    }
+  }, [supabase]);
 
   useEffect(() => {
     refreshSettings();
     const interval = setInterval(refreshSettings, 3000);
     window.addEventListener('teacher-settings-changed', refreshSettings);
+
+    // Setup Supabase Realtime Subscription if not in mock mode
+    let channel: any = null;
+    if (!isMockEnabled) {
+      channel = supabase
+        .channel('teacher-settings-changes')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'teacher_settings', filter: 'id=eq.1' },
+          (payload: any) => {
+            const data = payload.new;
+            setTeacherSettings({
+              currentWeek: data.current_week,
+              sessionOpen: data.session_open,
+              games: ALL_GAMES.map(g => ({ ...g })),
+            });
+          }
+        )
+        .subscribe();
+    }
+
     return () => {
       clearInterval(interval);
       window.removeEventListener('teacher-settings-changed', refreshSettings);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
-  }, [refreshSettings]);
+  }, [refreshSettings, supabase]);
 
   // ── Auth + initial state + check-in update on activeWeek change ────────────────
   useEffect(() => {
@@ -95,8 +139,8 @@ export default function HomePage() {
     }
   };
 
-  const sortedGames      = [...teacherSettings.games].sort((a, b) => a.order - b.order);
-  const enabledGames     = sortedGames.filter(g => g.enabled);
+  const activeGameForWeek = ALL_GAMES.find(g => g.id === activeWeek);
+  const enabledGames     = activeGameForWeek ? [activeGameForWeek] : [];
   const { sessionOpen }  = teacherSettings;
 
   // ── Colour helpers ──────────────────────────────────────────────────────────

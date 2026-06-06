@@ -112,3 +112,30 @@ create or replace trigger on_check_in_created
 
 -- Enable Supabase Realtime updates on profiles for the leaderboard
 alter publication supabase_realtime add table public.profiles;
+
+-- Create Teacher Settings table
+create table if not exists public.teacher_settings (
+  id integer primary key default 1,
+  current_week integer not null default 1,
+  session_open boolean not null default true,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS on teacher_settings
+alter table public.teacher_settings enable row level security;
+
+-- Policies for teacher_settings
+create policy "Allow public read access to teacher_settings" on public.teacher_settings
+  for select using (true);
+
+create policy "Allow all updates to teacher_settings" on public.teacher_settings
+  for update using (true);
+
+-- Insert initial default row
+insert into public.teacher_settings (id, current_week, session_open)
+values (1, 1, true)
+on conflict (id) do nothing;
+
+-- Enable Realtime updates on teacher_settings
+alter publication supabase_realtime add table public.teacher_settings;
+

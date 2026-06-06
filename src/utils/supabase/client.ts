@@ -11,6 +11,11 @@ export const TOTAL_WEEKS = 16;
 export const TEACHER_EMAIL = 'teacher@edu.vn';
 export const TEACHER_ID = 'teacher-uuid';
 
+export function isUserTeacher(user: any): boolean {
+  if (!user) return false;
+  return user.id === TEACHER_ID || user.email === TEACHER_EMAIL || user.email?.endsWith('@teacher.edu.vn');
+}
+
 // ─── Game Definitions ─────────────────────────────────────────────────────────
 export interface Game {
   id: number;

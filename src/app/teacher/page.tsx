@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient, isMockEnabled, getTeacherSettings, saveTeacherSettings, SUBJECT_NAME, TOTAL_WEEKS, TEACHER_ID, DEFAULT_TEACHER_SETTINGS, ALL_GAMES } from '@/utils/supabase/client';
+import { createClient, isMockEnabled, isUserTeacher, getTeacherSettings, saveTeacherSettings, SUBJECT_NAME, TOTAL_WEEKS, TEACHER_ID, DEFAULT_TEACHER_SETTINGS, ALL_GAMES } from '@/utils/supabase/client';
 import type { TeacherSettings, Game } from '@/utils/supabase/client';
 
 interface CheckedInStudent {
@@ -25,23 +25,48 @@ export default function TeacherPage() {
   const [mounted, setMounted]         = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
 
-  // Auth guard + load real settings after mount
+  // Load settings
+  const loadSettings = useCallback(async () => {
+    if (isMockEnabled) {
+      setSettings(getTeacherSettings());
+    } else {
+      try {
+        const { data, error } = await supabase
+          .from('teacher_settings')
+          .select('*')
+          .eq('id', 1)
+          .single();
+        if (error) throw error;
+        if (data) {
+          setSettings({
+            currentWeek: data.current_week,
+            sessionOpen: data.session_open,
+            games: ALL_GAMES.map(g => ({ ...g })),
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load settings from Supabase:', err);
+      }
+    }
+  }, [supabase]);
+
+  // Auth guard + load settings after mount
   useEffect(() => {
     setMounted(true);
-    setSettings(getTeacherSettings());
+    loadSettings();
     supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
       if (!user) { router.push('/login'); return; }
-      if (user.id !== TEACHER_ID) { router.push('/home'); }
+      if (!isUserTeacher(user)) { router.push('/home'); }
     });
-  }, []);
+  }, [loadSettings]);
 
   // Load checked-in students for current week
   const loadStudents = useCallback(async () => {
-    const s = getTeacherSettings();
+    const weekNum = settings.currentWeek;
     if (isMockEnabled) {
       const checkIns: any[] = JSON.parse(localStorage.getItem('mock_check_ins') || '[]');
       const profiles: any[] = JSON.parse(localStorage.getItem('mock_profiles') || '[]');
-      const weekCheckIns = checkIns.filter((c: any) => c.week_number === s.currentWeek);
+      const weekCheckIns = checkIns.filter((c: any) => c.week_number === weekNum);
       const result: CheckedInStudent[] = weekCheckIns.map((c: any) => {
         const profile = profiles.find((p: any) => p.id === c.user_id);
         return {
@@ -69,7 +94,7 @@ export default function TeacherPage() {
               avatar_url
             )
           `)
-          .eq('week_number', s.currentWeek);
+          .eq('week_number', weekNum);
 
         if (error) throw error;
 
@@ -91,7 +116,7 @@ export default function TeacherPage() {
         console.error('Failed to load checked in students:', err);
       }
     }
-  }, [supabase]);
+  }, [supabase, settings.currentWeek]);
 
   useEffect(() => {
     loadStudents();
@@ -100,11 +125,32 @@ export default function TeacherPage() {
   }, [loadStudents]);
 
   // Persist and save
-  const persist = (newSettings: TeacherSettings) => {
+  const persist = async (newSettings: TeacherSettings) => {
     setSettings(newSettings);
-    saveTeacherSettings(newSettings);
     setSaving(true);
-    setTimeout(() => { setSaving(false); setSavedMsg(true); setTimeout(() => setSavedMsg(false), 1500); }, 300);
+    if (isMockEnabled) {
+      saveTeacherSettings(newSettings);
+      setSaving(false);
+      setSavedMsg(true);
+      setTimeout(() => setSavedMsg(false), 1500);
+    } else {
+      try {
+        const { error } = await supabase
+          .from('teacher_settings')
+          .update({
+            current_week: newSettings.currentWeek,
+            session_open: newSettings.sessionOpen,
+          })
+          .eq('id', 1);
+        if (error) throw error;
+        setSavedMsg(true);
+        setTimeout(() => setSavedMsg(false), 1500);
+      } catch (err) {
+        console.error('Failed to save settings to Supabase:', err);
+      } finally {
+        setSaving(false);
+      }
+    }
   };
 
   const handleWeekChange = (week: number) => {
@@ -115,32 +161,13 @@ export default function TeacherPage() {
     persist({ ...settings, sessionOpen: !settings.sessionOpen });
   };
 
-  const toggleGame = (gameId: number) => {
-    const games = settings.games.map(g => g.id === gameId ? { ...g, enabled: !g.enabled } : g);
-    persist({ ...settings, games });
-  };
-
-  const moveGame = (gameId: number, direction: 'up' | 'down') => {
-    const sorted = [...settings.games].sort((a, b) => a.order - b.order);
-    const idx    = sorted.findIndex(g => g.id === gameId);
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= sorted.length) return;
-    const newGames = sorted.map((g, i) => {
-      if (i === idx)     return { ...g, order: sorted[swapIdx].order };
-      if (i === swapIdx) return { ...g, order: sorted[idx].order };
-      return g;
-    });
-    persist({ ...settings, games: newGames });
-  };
-
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     document.cookie = 'mock_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     router.push('/login');
   };
 
-  const sortedGames = [...settings.games].sort((a, b) => a.order - b.order);
-  const enabledCount = settings.games.filter(g => g.enabled).length;
+  const enabledCount = 1;
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-on-background pb-16">
@@ -250,70 +277,33 @@ export default function TeacherPage() {
           </div>
         )}
 
-        {/* ── Games Management ─────────────────────────────────────────────── */}
-        <section className="animate-fade-in-up stagger-2">
-          <div className="flex justify-between items-end mb-md">
-            <div>
-              <h3 className="text-xl font-extrabold text-on-surface font-display-hero">Trò chơi buổi học</h3>
-              <p className="text-xs text-on-surface-variant font-medium mt-xs">Bật/tắt và sắp xếp thứ tự hiển thị cho sinh viên</p>
-            </div>
-            <span className="bg-primary-container text-on-primary-container text-xs font-bold px-sm py-xs rounded-full">
-              {enabledCount}/{TOTAL_WEEKS} bật
+        {/* ── Active Week Game Info ────────────────────────────────────────── */}
+        <section className="animate-fade-in-up stagger-2 bg-surface-container-low border border-outline-variant/30 p-md rounded-xxl shadow-sm">
+          <div className="flex justify-between items-center mb-sm">
+            <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider">Trò chơi Tuần {settings.currentWeek}</h3>
+            <span className="bg-primary-container text-on-primary-container text-[11px] font-bold px-2 py-0.5 rounded-full">
+              Cố định
             </span>
           </div>
 
-          <div className="space-y-sm">
-            {sortedGames.map((game, idx) => (
-              <div
-                key={game.id}
-                className={`bg-white rounded-2xl border flex items-center gap-sm p-sm transition-all duration-300 ${
-                  game.enabled
-                    ? 'border-primary/10 shadow-[0_4px_12px_rgba(0,0,0,0.05)]'
-                    : 'border-outline-variant/20 opacity-55'
-                }`}
-              >
-                {/* Reorder arrows */}
-                <div className="flex flex-col gap-0.5">
-                  <button
-                    onClick={() => moveGame(game.id, 'up')}
-                    disabled={idx === 0}
-                    className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-surface-container disabled:opacity-20 transition-colors active:scale-90"
-                  >
-                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">arrow_drop_up</span>
-                  </button>
-                  <button
-                    onClick={() => moveGame(game.id, 'down')}
-                    disabled={idx === sortedGames.length - 1}
-                    className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-surface-container disabled:opacity-20 transition-colors active:scale-90"
-                  >
-                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">arrow_drop_down</span>
-                  </button>
+          {(() => {
+            const currentGame = ALL_GAMES.find(g => g.id === settings.currentWeek);
+            if (!currentGame) return <p className="text-xs text-on-surface-variant">Không tìm thấy trò chơi phù hợp cho tuần này.</p>;
+            return (
+              <div className="flex items-center gap-md bg-white p-md rounded-xl border border-outline-variant/20 shadow-sm">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${currentGame.colorClass}`}>
+                  {currentGame.icon}
                 </div>
-
-                {/* Icon */}
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${game.colorClass}`}>
-                  {game.icon}
-                </div>
-
-                {/* Info */}
-                <div className="flex-grow min-w-0">
+                <div>
                   <div className="flex items-center gap-xs">
-                    <p className="text-sm font-bold text-on-surface truncate">{game.name}</p>
-                    <span className="flex-shrink-0 text-[10px] font-extrabold bg-surface-container text-on-surface-variant px-1.5 py-0.5 rounded-md">+{game.points}</span>
+                    <h4 className="text-sm font-bold text-on-surface">{currentGame.name}</h4>
+                    <span className="text-[10px] font-extrabold bg-surface-container text-on-surface-variant px-1.5 py-0.5 rounded-md">+{currentGame.points} đ</span>
                   </div>
-                  <p className="text-[11px] text-on-surface-variant truncate">{game.description}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5 leading-tight">{currentGame.description}</p>
                 </div>
-
-                {/* Toggle switch */}
-                <button
-                  onClick={() => toggleGame(game.id)}
-                  className={`flex-shrink-0 w-12 h-6 rounded-full relative transition-colors duration-300 ${game.enabled ? 'bg-primary' : 'bg-outline-variant/40'}`}
-                >
-                  <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300 ${game.enabled ? 'left-[26px]' : 'left-0.5'}`} />
-                </button>
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </section>
 
         {/* ── Checked-in Students ──────────────────────────────────────────── */}
