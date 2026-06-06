@@ -1,5 +1,4 @@
-'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import type { Game } from '@/utils/supabase/client';
 import { getGameContent } from '@/utils/supabase/client';
 
@@ -10,6 +9,55 @@ interface Props {
   onComplete: (pts: number) => void;
   onClose: () => void;
 }
+
+const GameModalContext = createContext<{ game: Game; weekNumber: number; onClose: () => void; pts: number } | null>(null);
+
+// Move helper sub-components outside to prevent them from being recreated on every render
+const Wrap = ({ children }: { children: React.ReactNode }) => {
+  const ctx = useContext(GameModalContext);
+  if (!ctx) return null;
+  const { game, weekNumber, onClose } = ctx;
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-surface-container-lowest rounded-xxl w-full max-w-[450px] shadow-2xl border border-outline-variant/20 overflow-hidden animate-pop-in relative">
+        {/* Header */}
+        <div className="bg-primary p-md flex items-center justify-between">
+          <div className="flex items-center gap-sm">
+            <span className="text-2xl">{game.icon}</span>
+            <div>
+              <h2 className="text-base font-extrabold text-on-primary">{game.name}</h2>
+              <p className="text-xs text-on-primary/70">+{game.points} điểm • Tuần {weekNumber}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-on-primary/70 hover:text-on-primary active:scale-90 transition-all">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div className="p-lg">{children}</div>
+      </div>
+    </div>
+  );
+};
+
+const Done = () => {
+  const ctx = useContext(GameModalContext);
+  if (!ctx) return null;
+  const { pts } = ctx;
+  return (
+    <div className="text-center space-y-md">
+      <div className="text-6xl animate-bounce">🎉</div>
+      <h3 className="text-2xl font-extrabold text-primary">+{pts} Điểm!</h3>
+      <p className="text-on-surface-variant font-medium">Đã ghi nhận điểm thưởng của bạn</p>
+    </div>
+  );
+};
+
+const Btn = ({ onClick, children, disabled=false, cls='' }: any) => (
+  <button onClick={onClick} disabled={disabled}
+    className={`w-full py-md font-bold rounded-xl transition-all active:scale-95 ${disabled?'bg-surface-container text-on-surface-variant':'bg-primary text-on-primary hover:bg-primary/90'} ${cls}`}>
+    {children}
+  </button>
+);
 
 export default function GameModal({ game, weekNumber, streak, onComplete, onClose }: Props) {
   const gc = getGameContent(weekNumber);
@@ -47,43 +95,11 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     }
   }, [game.id]);
 
-  const Wrap = ({ children }: { children: React.ReactNode }) => (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface-container-lowest rounded-xxl w-full max-w-[450px] shadow-2xl border border-outline-variant/20 overflow-hidden animate-pop-in relative">
-        {/* Header */}
-        <div className="bg-primary p-md flex items-center justify-between">
-          <div className="flex items-center gap-sm">
-            <span className="text-2xl">{game.icon}</span>
-            <div>
-              <h2 className="text-base font-extrabold text-on-primary">{game.name}</h2>
-              <p className="text-xs text-on-primary/70">+{game.points} điểm • Tuần {weekNumber}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="text-on-primary/70 hover:text-on-primary active:scale-90 transition-all">
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
-        <div className="p-lg">{children}</div>
-      </div>
-    </div>
-  );
+  return (
+    <GameModalContext.Provider value={{ game, weekNumber, onClose, pts }}>
+      {(() => {
+        if (done) return <Wrap><Done /></Wrap>;
 
-  const Done = () => (
-    <div className="text-center space-y-md">
-      <div className="text-6xl animate-bounce">🎉</div>
-      <h3 className="text-2xl font-extrabold text-primary">+{pts} Điểm!</h3>
-      <p className="text-on-surface-variant font-medium">Đã ghi nhận điểm thưởng của bạn</p>
-    </div>
-  );
-
-  const Btn = ({ onClick, children, disabled=false, cls='' }: any) => (
-    <button onClick={onClick} disabled={disabled}
-      className={`w-full py-md font-bold rounded-xl transition-all active:scale-95 ${disabled?'bg-surface-container text-on-surface-variant':'bg-primary text-on-primary hover:bg-primary/90'} ${cls}`}>
-      {children}
-    </button>
-  );
-
-  if (done) return <Wrap><Done /></Wrap>;
 
   // ── GAME 1: Speed Check-in ─────────────────────────────────────────────────
   if (game.id === 1) return (
@@ -372,17 +388,23 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   }
 
   // ── GAME 16: Share Learning ──────────────────────────────────────────────
-  return (
-    <Wrap>
-      <div className="space-y-md">
-        <p className="font-semibold text-on-surface">💬 Chia sẻ điều bạn học được hôm nay:</p>
-        <textarea value={text} onChange={e=>setText(e.target.value)} rows={4} placeholder="Hôm nay tôi học được rằng..."
-          className="w-full p-md rounded-xl border border-outline-variant/40 focus:border-primary outline-none text-sm resize-none bg-surface-container-low"/>
-        <div className="flex justify-between text-xs text-on-surface-variant">
-          <span>Tối thiểu 20 ký tự</span><span className={text.length>=20?'text-tertiary font-bold':''}>{text.length}/20</span>
-        </div>
-        <Btn disabled={text.trim().length<20} onClick={()=>finish(5)}>📤 Chia sẻ (+5 điểm)</Btn>
-      </div>
-    </Wrap>
+        return (
+          <Wrap>
+            <div className="space-y-md">
+              <p className="font-semibold text-on-surface">💬 Chia sẻ điều bạn học được hôm nay:</p>
+              <textarea value={text} onChange={e=>setText(e.target.value)} rows={4} placeholder="Hôm nay tôi học được rằng..."
+                className="w-full p-md rounded-xl border border-outline-variant/40 focus:border-primary outline-none text-sm resize-none bg-surface-container-low"
+              />
+              <div className="flex justify-between text-xs text-on-surface-variant">
+                <span>Tối thiểu 20 ký tự</span><span className={text.length>=20?'text-tertiary font-bold':''}>{text.length}/20</span>
+              </div>
+              <Btn disabled={text.trim().length<20} onClick={()=>finish(5)}>📤 Chia sẻ (+5 điểm)</Btn>
+            </div>
+          </Wrap>
+        );
+      })()}
+    </GameModalContext.Provider>
   );
 }
+
+
