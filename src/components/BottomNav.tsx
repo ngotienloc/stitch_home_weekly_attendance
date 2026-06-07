@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { createClient, TEACHER_ID } from '@/utils/supabase/client';
+import { createClient, isUserTeacher } from '@/utils/supabase/client';
 
 export default function BottomNav() {
   const pathname  = usePathname();
@@ -11,10 +11,13 @@ export default function BottomNav() {
   const [isTeacher, setIsTeacher] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
-      setIsTeacher(user?.id === TEACHER_ID);
+    supabase.auth.getUser().then((res: any) => {
+      const user = res?.data?.user;
+      setIsTeacher(!!user && isUserTeacher(user));
+    }).catch((err) => {
+      console.error('Failed to get user in BottomNav:', err);
     });
-  }, []);
+  }, [supabase]);
 
   // Teacher gets a separate nav
   if (isTeacher) {

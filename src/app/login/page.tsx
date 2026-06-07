@@ -83,8 +83,22 @@ export default function LoginPage() {
             password,
           });
           if (signInError) throw signInError;
+
+          // Cache credentials in local storage for the Dev Quick Switcher
+          if (process.env.NODE_ENV === 'development') {
+            const isUserTeacherRole = email === TEACHER_EMAIL || email.endsWith('@teacher.edu.vn');
+            if (isUserTeacherRole) {
+              localStorage.setItem('dev_teacher_email', email);
+              localStorage.setItem('dev_teacher_password', password);
+            } else {
+              localStorage.setItem('dev_student_email', email);
+              localStorage.setItem('dev_student_password', password);
+            }
+          }
+
+          const isUserTeacherRole = email === TEACHER_EMAIL || email.endsWith('@teacher.edu.vn');
           router.refresh();
-          router.push('/home');
+          router.push(isUserTeacherRole ? '/teacher' : '/home');
         }
       }
     } catch (err: any) {
