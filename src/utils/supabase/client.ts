@@ -370,7 +370,15 @@ function getMockSupabaseClient(): any {
   };
 }
 
+let cachedClient: any = null;
+
 export function createClient() {
-  if (isMockEnabled) return getMockSupabaseClient();
-  return createBrowserClient(supabaseUrl!, supabaseAnonKey!);
+  if (cachedClient) return cachedClient;
+
+  if (isMockEnabled) {
+    cachedClient = getMockSupabaseClient();
+  } else {
+    cachedClient = createBrowserClient(supabaseUrl!, supabaseAnonKey!);
+  }
+  return cachedClient;
 }
