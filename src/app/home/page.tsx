@@ -106,8 +106,11 @@ export default function HomePage() {
   }, [activeWeek, userId]);
 
   // ── Check-in handler ───────────────────────────────────────────────────────
+  const isCurrentWeek = activeWeek === teacherSettings.currentWeek;
+  const isSessionOpenForSelectedWeek = isCurrentWeek && teacherSettings.sessionOpen;
+
   const handleCheckIn = async (game?: Game, earnedPts?: number) => {
-    if (loading || !teacherSettings.sessionOpen) return;
+    if (loading || !isSessionOpenForSelectedWeek) return;
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -141,7 +144,6 @@ export default function HomePage() {
 
   const activeGameForWeek = ALL_GAMES.find(g => g.id === activeWeek);
   const enabledGames     = activeGameForWeek ? [activeGameForWeek] : [];
-  const { sessionOpen }  = teacherSettings;
 
   // ── Colour helpers ──────────────────────────────────────────────────────────
   const pointsBadgeColor = (pts: number) => {
@@ -209,11 +211,17 @@ export default function HomePage() {
           </div>
 
           {/* Session closed state */}
-          {!sessionOpen ? (
+          {!isSessionOpenForSelectedWeek ? (
             <div className="flex flex-col items-center justify-center py-10 bg-surface-container rounded-2xl border-2 border-dashed border-outline-variant/30 text-center animate-fade-in-up">
-              <span className="text-5xl mb-md">🔒</span>
-              <h4 className="font-extrabold text-on-surface text-base mb-xs">Buổi học chưa mở</h4>
-              <p className="text-sm text-on-surface-variant font-medium">Giảng viên chưa mở buổi điểm danh tuần {activeWeek}.<br />Vui lòng chờ giảng viên bắt đầu.</p>
+              <span className="text-5xl mb-md">{activeWeek < teacherSettings.currentWeek ? '⏰' : '🔒'}</span>
+              <h4 className="font-extrabold text-on-surface text-base mb-xs">
+                {activeWeek < teacherSettings.currentWeek ? 'Buổi học đã kết thúc' : 'Buổi học chưa mở'}
+              </h4>
+              <p className="text-sm text-on-surface-variant font-medium">
+                {activeWeek < teacherSettings.currentWeek
+                  ? `Thời gian điểm danh cho tuần ${activeWeek} đã hết hạn.`
+                  : `Giảng viên chưa mở buổi điểm danh tuần ${activeWeek}. Vui lòng chờ giảng viên bắt đầu.`}
+              </p>
             </div>
           ) : enabledGames.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 bg-surface-container rounded-2xl border border-outline-variant/20 text-center">
@@ -251,12 +259,18 @@ export default function HomePage() {
         {/* ── CTA Button ───────────────────────────────────────────────────── */}
         <div className="animate-fade-in-up stagger-4 mt-xl flex flex-col items-center">
           <button
-            onClick={() => handleCheckIn(enabledGames[0])}
-            disabled={checkedIn || loading || !sessionOpen}
+            onClick={() => {
+              if (enabledGames.length > 0) {
+                setActiveGame(enabledGames[0]);
+              } else {
+                handleCheckIn();
+              }
+            }}
+            disabled={checkedIn || loading || !isSessionOpenForSelectedWeek}
             className={`w-full py-lg font-bold font-headline-md text-lg rounded-xxl transition-all duration-300 active:scale-95 flex items-center justify-center gap-sm group relative overflow-hidden shadow-lg border ${
               checkedIn
                 ? 'bg-surface-container-high text-on-surface-variant/50 cursor-default shadow-none border-outline-variant/20'
-                : !sessionOpen
+                : !isSessionOpenForSelectedWeek
                 ? 'bg-surface-container text-on-surface-variant/40 cursor-not-allowed border-outline-variant/20'
                 : 'bg-primary text-on-primary hover:bg-primary/95 cta-pulse border-primary/10'
             }`}
@@ -268,10 +282,10 @@ export default function HomePage() {
                 <span className="material-symbols-outlined text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
                 Đã Điểm Danh Thành Công
               </>
-            ) : !sessionOpen ? (
+            ) : !isSessionOpenForSelectedWeek ? (
               <>
-                <span className="material-symbols-outlined">lock</span>
-                Chờ Giảng Viên Mở Buổi
+                <span className="material-symbols-outlined">{activeWeek < teacherSettings.currentWeek ? 'timer_off' : 'lock'}</span>
+                {activeWeek < teacherSettings.currentWeek ? 'Đã Hết Hạn Điểm Danh' : 'Chờ Giảng Viên Mở Buổi'}
               </>
             ) : (
               <>
@@ -280,7 +294,7 @@ export default function HomePage() {
               </>
             )}
           </button>
-          {!checkedIn && sessionOpen && (
+          {!checkedIn && isSessionOpenForSelectedWeek && (
             <p className="text-xs text-on-surface-variant mt-md font-semibold">Yêu cầu bật kết nối Bluetooth &amp; Vị trí</p>
           )}
         </div>
