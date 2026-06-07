@@ -74,7 +74,7 @@ export default function DevSwitcher() {
         throw new Error(`Vui lòng cấu hình Email cho ${role === 'teacher' ? 'Giảng viên' : 'Sinh viên'}`);
       }
       if (!isMockEnabled && !password) {
-        throw new Error(`Chế độ Supabase thật yêu cầu Mật khẩu để tự động đăng nhập.`);
+        throw new Error(`Chế độ Supabase thật yêu cầu cấu hình Mật khẩu bên dưới (hoặc đăng nhập tài khoản thủ công một lần tại trang Đăng nhập để hệ thống tự ghi nhớ mật khẩu).`);
       }
 
       // 1. Sign out current session
@@ -95,19 +95,18 @@ export default function DevSwitcher() {
       }
 
       setSuccess(`Đã chuyển vai trò sang ${role === 'teacher' ? 'Giảng viên' : 'Sinh viên'}!`);
+      
+      // Delay slightly to ensure browser writes session cookies
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      
       setIsOpen(false);
 
-      // 4. Force router refresh and redirect
-      router.refresh();
+      // 4. Force hard reload to update server context and cookies
       if (role === 'teacher') {
-        router.push('/teacher');
+        window.location.href = '/teacher';
       } else {
-        router.push('/home');
+        window.location.href = '/home';
       }
-
-      // Refresh current user indicator
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
     } catch (err: any) {
       setError(err.message || 'Chuyển đổi vai trò thất bại.');
     } finally {

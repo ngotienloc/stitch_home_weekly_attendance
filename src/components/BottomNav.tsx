@@ -14,7 +14,7 @@ export default function BottomNav() {
     supabase.auth.getUser().then((res: any) => {
       const user = res?.data?.user;
       setIsTeacher(!!user && isUserTeacher(user));
-    }).catch((err) => {
+    }).catch((err: any) => {
       console.error('Failed to get user in BottomNav:', err);
     });
   }, [supabase]);
