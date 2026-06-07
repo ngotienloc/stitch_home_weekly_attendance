@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import DevSwitcher from '@/components/DevSwitcher';
 
 export const metadata: Metadata = {
   title: 'AttendanceHero - Weekly Quest Attendance',
@@ -31,7 +32,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-[#f8f9fa] overflow-x-hidden">
         {children}
+        <DevSwitcher />
       </body>
     </html>
   );
 }
+
