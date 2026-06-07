@@ -6,7 +6,7 @@ interface Props {
   game: Game;
   weekNumber: number;
   streak: number;
-  onComplete: (pts: number) => void;
+  onComplete: (pts: number, studentInput?: string) => void;
   onClose: () => void;
 }
 
@@ -73,10 +73,16 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const [timer, setTimer] = useState(30);
   const [searching, setSearching] = useState(false);
   const [opponent, setOpponent] = useState('');
+  const [reviewAns, setReviewAns] = useState<Record<number, string>>({});
   const [hintShown, setHintShown] = useState(false);
   const timerRef = useRef<any>(null);
 
-  const finish = (p: number) => { setPts(p); setDone(true); setTimeout(() => onComplete(p), 1800); };
+  const finish = (p: number, inputVal?: string | null) => {
+    setPts(p);
+    setDone(true);
+    const finalInput = inputVal !== undefined ? inputVal : (text.trim() ? text.trim() : (stars > 0 ? `${stars} sao` : null));
+    setTimeout(() => onComplete(p, finalInput || undefined), 1800);
+  };
 
   // Game 13: 30-second countdown
   useEffect(() => {
@@ -276,7 +282,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
               </div>
               <textarea value={text} onChange={e => setText(e.target.value)} rows={2} placeholder="Góp ý thêm (không bắt buộc)..."
                 className="w-full p-md rounded-xl border border-outline-variant/40 focus:border-primary outline-none text-sm resize-none bg-surface-container-low" />
-              <Btn onClick={() => finish(5)} disabled={stars === 0}>Gửi phản hồi (+5 điểm)</Btn>
+              <Btn onClick={() => finish(5, `${stars} sao${text.trim() ? ` • ${text.trim()}` : ''}`)} disabled={stars === 0}>Gửi phản hồi (+5 điểm)</Btn>
             </div>
           </Wrap>
         );
@@ -323,7 +329,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
                   const correct = selected === q.ans;
                   const ns = quizScore + (correct ? 5 : 0);
                   setScore(ns); setSelected(null);
-                  if (quizIdx + 1 >= qs.length) finish(ns);
+                  if (quizIdx + 1 >= qs.length) finish(ns, `Đạt ${ns}/${qs.length * 5} điểm`);
                   else setQuizIdx(quizIdx + 1);
                 }}>
                   {quizIdx + 1 < qs.length ? 'Câu tiếp theo →' : 'Hoàn thành Quiz'}
@@ -433,10 +439,12 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
                   <div key={i} className="space-y-xs">
                     <p className="text-sm font-semibold text-on-surface">{i + 1}. {q}</p>
                     <textarea rows={2} placeholder="Câu trả lời của bạn..."
+                      value={reviewAns[i] || ''}
+                      onChange={e => setReviewAns({ ...reviewAns, [i]: e.target.value })}
                       className="w-full p-sm rounded-xl border border-outline-variant/40 focus:border-primary outline-none text-sm resize-none bg-surface-container-low" />
                   </div>
                 ))}
-                <Btn onClick={() => finish(10)}>✅ Nộp bài ôn tập (+10 điểm)</Btn>
+                <Btn onClick={() => finish(10, Object.entries(reviewAns).map(([idx, ans]) => `Câu ${Number(idx)+1}: ${ans}`).join(' | '))} disabled={rqs.some((_, i) => !reviewAns[i]?.trim())}>✅ Nộp bài ôn tập (+10 điểm)</Btn>
               </div>
             </Wrap>
           );

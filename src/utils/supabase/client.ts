@@ -250,15 +250,49 @@ function getMockSupabaseClient(): any {
         _ascending: false,
         _isSingle: false,
         _insertData: null as any,
+        _isDelete: false,
 
         select(_c?: string) { return this; },
         eq(col: string, val: any) { this._filters.push({ col, val }); return this; },
         order(col: string, opts?: { ascending?: boolean }) { this._orderCol = col; this._ascending = !!opts?.ascending; return this; },
         single() { this._isSingle = true; return this; },
         insert(data: any) { this._insertData = data; return this; },
+        delete() { this._isDelete = true; return this; },
 
         then(resolve: any, _reject?: any) {
           try {
+            // ── DELETE ──────────────────────────────────────────────────────
+            if (this._isDelete) {
+              if (table === 'check_ins') {
+                let checkIns = JSON.parse(localStorage.getItem('mock_check_ins') || '[]');
+                let toDelete = [...checkIns];
+                this._filters.forEach(f => {
+                  toDelete = toDelete.filter(p => p[f.col] === f.val);
+                });
+
+                if (toDelete.length > 0) {
+                  const profiles = JSON.parse(localStorage.getItem('mock_profiles') || '[]');
+                  toDelete.forEach((ci: any) => {
+                    const profile = profiles.find((p: any) => p.id === ci.user_id);
+                    if (profile) {
+                      profile.total_points = Math.max(0, profile.total_points - ci.points_earned);
+                      profile.streak = Math.max(0, profile.streak - 1);
+                    }
+                  });
+                  localStorage.setItem('mock_profiles', JSON.stringify(profiles));
+                }
+
+                this._filters.forEach(f => {
+                  checkIns = checkIns.filter((p: any) => p[f.col] !== f.val);
+                });
+                localStorage.setItem('mock_check_ins', JSON.stringify(checkIns));
+                resolve({ data: toDelete, error: null });
+                return;
+              }
+              resolve({ data: null, error: null });
+              return;
+            }
+
             // ── INSERT ──────────────────────────────────────────────────────
             if (this._insertData) {
               if (table === 'check_ins') {

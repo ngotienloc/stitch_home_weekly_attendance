@@ -250,6 +250,72 @@ export default function ProfilePage() {
             </div>
           </section>
 
+          {/* Unlocked Badges Section */}
+          <section className="bg-white p-lg rounded-card shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-surface-variant/20 animate-fade-in-up stagger-3.5">
+            <h3 className="text-lg font-bold font-headline-md text-on-surface mb-sm flex items-center gap-1">
+              <span className="material-symbols-outlined text-[20px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
+              Danh hiệu đạt được
+            </h3>
+            <div className="grid grid-cols-2 gap-md">
+              {[
+                {
+                  id: 'diamond_attendance',
+                  name: 'Chuyên Cần Kim Cương 💎',
+                  description: 'Tham gia điểm danh trên 10 tuần học',
+                  icon: 'workspace_premium',
+                  color: 'text-cyan-500 bg-cyan-50 border-cyan-200/50',
+                  unlocked: checkedInWeeks.length >= 10
+                },
+                {
+                  id: 'streak_king',
+                  name: 'Vua Chuỗi Lửa 🔥',
+                  description: 'Duy trì chuỗi điểm danh từ 5 ngày trở lên',
+                  icon: 'local_fire_department',
+                  color: 'text-amber-500 bg-amber-50 border-amber-200/50',
+                  unlocked: (profile?.streak || 0) >= 5
+                },
+                {
+                  id: 'score_champion',
+                  name: 'Vô Địch Điểm Số 🏆',
+                  description: 'Đạt tổng điểm tích lũy từ 250 điểm',
+                  icon: 'emoji_events',
+                  color: 'text-yellow-600 bg-yellow-50 border-yellow-200/50',
+                  unlocked: (profile?.total_points || 0) >= 250
+                },
+                {
+                  id: 'wise_sage',
+                  name: 'Nhà Thông Thái 🧠',
+                  description: 'Hoàn thành thử thách Mini Quiz tuần 9',
+                  icon: 'psychology',
+                  color: 'text-purple-500 bg-purple-50 border-purple-200/50',
+                  unlocked: activities.some(act => act.activity_type.includes('Mini Quiz'))
+                }
+              ].map((badge) => (
+                <div
+                  key={badge.id}
+                  className={`p-md rounded-xl border flex flex-col items-center text-center space-y-xs transition-all duration-300 hover:scale-[1.02] ${
+                    badge.unlocked
+                      ? 'bg-surface-container-lowest border-outline-variant/30 opacity-100 shadow-sm'
+                      : 'bg-surface-container-low border-dashed border-outline-variant/20 opacity-50 filter grayscale'
+                  }`}
+                >
+                  <div className={`w-12 h-12 rounded-full border flex items-center justify-center ${badge.unlocked ? badge.color : 'bg-surface-container text-outline'}`}>
+                    <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: badge.unlocked ? "'FILL' 1" : "'FILL' 0" }}>
+                      {badge.icon}
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-on-surface">{badge.name}</h4>
+                    <p className="text-[10px] text-on-surface-variant leading-tight">{badge.description}</p>
+                  </div>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${badge.unlocked ? 'bg-green-100 text-green-800' : 'bg-surface-container text-on-surface-variant/50'}`}>
+                    {badge.unlocked ? 'Đã Mở Khóa' : 'Chưa Đạt'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
           {/* Activity Log */}
           <section className="space-y-md animate-fade-in-up stagger-4">
             <div className="flex justify-between items-end">

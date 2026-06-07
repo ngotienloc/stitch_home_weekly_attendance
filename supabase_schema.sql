@@ -45,9 +45,11 @@ create table public.check_ins (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
   subject text not null,
+  game_name text,
   points_earned integer not null,
   week_number integer not null,
   is_bonus boolean default false,
+  student_input text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -138,4 +140,42 @@ on conflict (id) do nothing;
 
 -- Enable Realtime updates on teacher_settings
 alter publication supabase_realtime add table public.teacher_settings;
+
+-- Allow check-ins to be deleted (e.g. for resets)
+create policy "Allow delete on check-ins for everyone." on public.check_ins
+  for delete using (true);
+
+-- Function to handle check-in deletion (adjust profile points and streak)
+create or replace function public.handle_check_in_delete()
+returns trigger as $$
+begin
+  -- 1. Deduct points and decrement streak in profiles
+  update public.profiles
+  set 
+    total_points = greatest(0, total_points - old.points_earned),
+    streak = greatest(0, streak - 1),
+    attendance_rate = coalesce((
+      select round((count(distinct week_number)::numeric / 16.0) * 100.0, 1)
+      from public.check_ins
+      where user_id = old.user_id
+    ), 0.0)
+  where id = old.user_id;
+
+  -- 2. Insert corresponding activity log indicating the reset/reduction
+  insert into public.activity_log (user_id, activity_type, description, points)
+  values (
+    old.user_id,
+    'Attendance Reset',
+    'Reset attendance for Week ' || old.week_number,
+    -old.points_earned
+  );
+
+  return old;
+end;
+$$ language plpgsql security definer;
+
+-- Trigger to run after deleting a check-in
+create or replace trigger on_check_in_deleted
+  after delete on public.check_ins
+  for each row execute procedure public.handle_check_in_delete();
 

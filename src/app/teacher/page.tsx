@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient, isMockEnabled, isUserTeacher, getTeacherSettings, saveTeacherSettings, SUBJECT_NAME, TOTAL_WEEKS, TEACHER_ID, DEFAULT_TEACHER_SETTINGS, ALL_GAMES } from '@/utils/supabase/client';
+import { createClient, isMockEnabled, isUserTeacher, getTeacherSettings, saveTeacherSettings, SUBJECT_NAME, TOTAL_WEEKS, TEACHER_ID, DEFAULT_TEACHER_SETTINGS, ALL_GAMES, getGameContent, saveGameContent } from '@/utils/supabase/client';
 import type { TeacherSettings, Game } from '@/utils/supabase/client';
 
 interface CheckedInStudent {
@@ -12,6 +12,7 @@ interface CheckedInStudent {
   points_earned: number;
   game_name: string;
   created_at: string;
+  student_input?: string | null;
 }
 
 export default function TeacherPage() {
@@ -24,6 +25,10 @@ export default function TeacherPage() {
   const [savedMsg, setSavedMsg]       = useState(false);
   const [mounted, setMounted]         = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [completedWeeks, setCompletedWeeks] = useState<Set<number>>(new Set());
+
+  const [customSecretQuestion, setCustomSecretQuestion] = useState('');
+  const [customQuizQuestions, setCustomQuizQuestions] = useState<any[]>([]);
 
   // Load settings
   const loadSettings = useCallback(async () => {
@@ -60,6 +65,65 @@ export default function TeacherPage() {
     });
   }, [loadSettings]);
 
+  useEffect(() => {
+    if (mounted) {
+      const content2 = getGameContent(2);
+      setCustomSecretQuestion(content2.secretQuestion || '');
+
+      const content9 = getGameContent(9);
+      setCustomQuizQuestions(content9.quizQuestions || []);
+    }
+  }, [mounted, settings.currentWeek]);
+
+  // Word Cloud calculation
+  const getWordCloudWords = () => {
+    const wordCounts: Record<string, number> = {};
+    const stopwords = new Set([
+      'và', 'là', 'của', 'để', 'trong', 'cho', 'có', 'các', 'nhưng', 'khi', 'này', 'nào', 'với', 'một', 'những', 'được', 'ra', 'về', 'sao', 'điểm', 'trả', 'lời', 'câu', 'hỏi', 'bài', 'học', 'tuần', 'em'
+    ]);
+    
+    students.forEach(s => {
+      if (s.student_input) {
+        const cleanText = s.student_input.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, ' ');
+        const words = cleanText.split(/\s+/);
+        words.forEach(w => {
+          const trimmed = w.trim();
+          if (trimmed.length > 1 && !stopwords.has(trimmed) && isNaN(Number(trimmed))) {
+            wordCounts[trimmed] = (wordCounts[trimmed] || 0) + 1;
+          }
+        });
+      }
+    });
+    
+    return Object.entries(wordCounts)
+      .map(([text, count]) => ({ text, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+  };
+
+  const handleExportCSV = () => {
+    if (students.length === 0) {
+      alert('Không có dữ liệu sinh viên điểm danh để xuất!');
+      return;
+    }
+    let csvContent = 'data:text/csv;charset=utf-8,\uFEFF';
+    csvContent += 'STT,Họ và tên,Tên thử thách,Số điểm,Thời gian điểm danh,Câu trả lời chi tiết\n';
+    
+    students.forEach((s, idx) => {
+      const timeStr = new Date(s.created_at).toLocaleString('vi-VN');
+      const cleanInput = s.student_input ? s.student_input.replace(/"/g, '""') : '';
+      csvContent += `${idx + 1},"${s.full_name}","${s.game_name}",${s.points_earned},"${timeStr}","${cleanInput}"\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `DiemDanh_Tuan_${settings.currentWeek}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Load checked-in students for current week
   const loadStudents = useCallback(async () => {
     const weekNum = settings.currentWeek;
@@ -76,9 +140,14 @@ export default function TeacherPage() {
           points_earned: c.points_earned,
           game_name: c.game_name || 'Điểm danh',
           created_at: c.created_at,
+          student_input: c.student_input || null,
         };
       });
       setStudents(result);
+
+      // Extract unique week numbers that have check-ins
+      const uniqueWeeks = new Set<number>(checkIns.map((c: any) => c.week_number));
+      setCompletedWeeks(uniqueWeeks);
     } else {
       try {
         const { data, error } = await supabase
@@ -88,6 +157,7 @@ export default function TeacherPage() {
             points_earned,
             game_name,
             created_at,
+            student_input,
             profiles (
               id,
               full_name,
@@ -108,9 +178,19 @@ export default function TeacherPage() {
               points_earned: c.points_earned,
               game_name: c.game_name || 'Điểm danh',
               created_at: c.created_at,
+              student_input: c.student_input || null,
             };
           });
           setStudents(result);
+        }
+
+        // Fetch all check-ins to find which weeks have students
+        const { data: allCis, error: allErr } = await supabase
+          .from('check_ins')
+          .select('week_number');
+        if (!allErr && allCis) {
+          const uniqueWeeks = new Set<number>(allCis.map((c: any) => c.week_number));
+          setCompletedWeeks(uniqueWeeks);
         }
       } catch (err) {
         console.error('Failed to load checked in students:', err);
@@ -161,6 +241,28 @@ export default function TeacherPage() {
     persist({ ...settings, sessionOpen: !settings.sessionOpen });
   };
 
+  const handleResetAttendance = async () => {
+    const confirmed = window.confirm(
+      `Cảnh báo: Bạn có chắc chắn muốn xóa toàn bộ điểm danh của Tuần ${settings.currentWeek}? Tất cả sinh viên đã điểm danh tuần này sẽ bị xóa khỏi danh sách và phải điểm danh lại.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('check_ins')
+        .delete()
+        .eq('week_number', settings.currentWeek);
+
+      if (error) throw error;
+
+      await loadStudents();
+      alert(`Đã đặt lại thành công điểm danh Tuần ${settings.currentWeek}!`);
+    } catch (err) {
+      console.error('Failed to reset attendance:', err);
+      alert('Không thể đặt lại điểm danh. Vui lòng thử lại.');
+    }
+  };
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     document.cookie = 'mock_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
@@ -200,20 +302,30 @@ export default function TeacherPage() {
 
             {/* Week selector */}
             <p className="text-xs font-bold text-on-secondary-container/80 mb-sm">Chọn tuần đang dạy:</p>
-            <div className="flex flex-wrap gap-1.5">
-              {Array.from({ length: TOTAL_WEEKS }, (_, i) => i + 1).map(w => (
-                <button
-                  key={w}
-                  onClick={() => handleWeekChange(w)}
-                  className={`w-9 h-9 rounded-full text-sm font-bold transition-all duration-200 active:scale-90 ${
-                    settings.currentWeek === w
-                      ? 'bg-white text-secondary shadow-md scale-110'
-                      : 'bg-white/20 text-on-secondary-container hover:bg-white/35'
-                  }`}
-                >
-                  {w}
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-2">
+              {Array.from({ length: TOTAL_WEEKS }, (_, i) => i + 1).map(w => {
+                const isCompleted = completedWeeks.has(w);
+                const isActive = settings.currentWeek === w;
+
+                return (
+                  <button
+                    key={w}
+                    onClick={() => handleWeekChange(w)}
+                    className={`w-9 h-9 rounded-full text-xs font-bold transition-all duration-200 active:scale-90 relative flex items-center justify-center ${
+                      isActive
+                        ? 'bg-white text-secondary shadow-md scale-110'
+                        : 'bg-white/20 text-on-secondary-container hover:bg-white/35'
+                    }`}
+                  >
+                    {w}
+                    {isCompleted && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-tertiary text-on-tertiary text-[9px] rounded-full flex items-center justify-center shadow-sm">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -244,7 +356,7 @@ export default function TeacherPage() {
               </div>
             </div>
             <div className="flex gap-2">
-              {settings.sessionOpen && (
+              {settings.sessionOpen && settings.currentWeek === 3 && (
                 <button
                   onClick={() => setShowQRModal(true)}
                   className="px-lg py-sm rounded-full font-extrabold text-sm bg-tertiary text-on-tertiary hover:bg-tertiary/90 transition-all active:scale-95 shadow-md flex items-center gap-1"
@@ -282,7 +394,7 @@ export default function TeacherPage() {
           <div className="flex justify-between items-center mb-sm">
             <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider">Trò chơi Tuần {settings.currentWeek}</h3>
             <span className="bg-primary-container text-on-primary-container text-[11px] font-bold px-2 py-0.5 rounded-full">
-              Cố định
+              {settings.currentWeek === 2 || settings.currentWeek === 9 ? 'Có thể tùy biến' : 'Cố định'}
             </span>
           </div>
 
@@ -306,13 +418,154 @@ export default function TeacherPage() {
           })()}
         </section>
 
+        {/* Game Customisation Card */}
+        {mounted && (settings.currentWeek === 2 || settings.currentWeek === 9) && (
+          <section className="bg-white p-lg rounded-xxl shadow-sm border border-outline-variant/20 animate-fade-in-up mt-sm">
+            <h4 className="text-sm font-bold text-on-surface mb-sm flex items-center gap-1">
+              <span className="material-symbols-outlined text-[18px] text-primary">edit_note</span>
+              Tùy biến câu hỏi tuần {settings.currentWeek}
+            </h4>
+            
+            {settings.currentWeek === 2 && (
+              <div className="space-y-sm">
+                <label className="text-xs font-bold text-on-surface-variant">Nhập câu hỏi bí mật của giảng viên:</label>
+                <input
+                  type="text"
+                  value={customSecretQuestion}
+                  onChange={(e) => {
+                    setCustomSecretQuestion(e.target.value);
+                    saveGameContent(2, { secretQuestion: e.target.value });
+                  }}
+                  className="w-full px-md py-sm rounded-xl border border-outline-variant/40 text-sm focus:outline-none focus:border-primary bg-surface-container-low"
+                  placeholder="Ví dụ: Quy trình thiết kế kỹ thuật gồm mấy bước chính?"
+                />
+              </div>
+            )}
+
+            {settings.currentWeek === 9 && customQuizQuestions.length > 0 && (
+              <div className="space-y-md">
+                <p className="text-[11px] text-on-surface-variant font-medium">Chỉnh sửa 3 câu hỏi trắc nghiệm của Mini Quiz:</p>
+                {customQuizQuestions.map((qItem, qIdx) => (
+                  <div key={qIdx} className="p-sm bg-surface-container-low rounded-xl border border-outline-variant/15 space-y-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-primary">Câu hỏi {qIdx + 1}</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={qItem.q}
+                      onChange={(e) => {
+                        const updated = [...customQuizQuestions];
+                        updated[qIdx].q = e.target.value;
+                        setCustomQuizQuestions(updated);
+                        saveGameContent(9, { quizQuestions: updated });
+                      }}
+                      className="w-full px-sm py-xs rounded-lg border border-outline-variant/30 text-xs focus:outline-none focus:border-primary"
+                      placeholder={`Câu hỏi ${qIdx + 1}`}
+                    />
+                    
+                    <div className="grid grid-cols-2 gap-sm">
+                      {qItem.opts.map((opt: string, optIdx: number) => (
+                        <div key={optIdx} className="flex items-center gap-xs">
+                          <span className="text-[10px] font-bold text-on-surface-variant">{String.fromCharCode(65 + optIdx)}:</span>
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={(e) => {
+                              const updated = [...customQuizQuestions];
+                              updated[qIdx].opts[optIdx] = e.target.value;
+                              setCustomQuizQuestions(updated);
+                              saveGameContent(9, { quizQuestions: updated });
+                            }}
+                            className="flex-grow px-sm py-0.5 rounded border border-outline-variant/20 text-[10px] focus:outline-none"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-sm text-[10px]">
+                      <span className="font-bold text-on-surface-variant">Đáp án đúng:</span>
+                      <select
+                        value={qItem.ans}
+                        onChange={(e) => {
+                          const updated = [...customQuizQuestions];
+                          updated[qIdx].ans = parseInt(e.target.value);
+                          setCustomQuizQuestions(updated);
+                          saveGameContent(9, { quizQuestions: updated });
+                        }}
+                        className="bg-white border border-outline-variant/30 rounded px-sm py-0.5"
+                      >
+                        <option value={0}>Đáp án A</option>
+                        <option value={1}>Đáp án B</option>
+                        <option value={2}>Đáp án C</option>
+                        <option value={3}>Đáp án D</option>
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Word Cloud Section ───────────────────────────────────────────── */}
+        {mounted && students.some(s => s.student_input) && (
+          <section className="bg-white p-lg rounded-xxl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-outline-variant/15 mt-sm">
+            <h3 className="text-sm font-bold text-on-surface mb-sm flex items-center gap-1">
+              <span className="material-symbols-outlined text-[18px] text-primary">cloud</span>
+              Từ khóa thảo luận nổi bật (Word Cloud)
+            </h3>
+            <p className="text-xs text-on-surface-variant mb-md">Tổng hợp từ khóa xuất hiện nhiều nhất trong câu trả lời của sinh viên tuần này.</p>
+            
+            <div className="flex flex-wrap items-center justify-center gap-sm bg-surface-container-low p-lg rounded-xl min-h-[120px]">
+              {getWordCloudWords().map((word, wIdx) => {
+                const size = word.count > 3 ? 'text-lg font-extrabold' : word.count > 1 ? 'text-sm font-bold' : 'text-xs font-semibold';
+                const colors = ['text-primary', 'text-secondary', 'text-tertiary', 'text-error'];
+                const colorClass = colors[wIdx % colors.length];
+                
+                return (
+                  <span
+                    key={word.text}
+                    className={`px-3 py-1 bg-white rounded-full border border-outline-variant/10 shadow-sm transition-all duration-300 hover:scale-110 cursor-pointer ${size} ${colorClass}`}
+                    title={`${word.count} lượt nhắc đến`}
+                  >
+                    {word.text}
+                    <span className="text-[9px] opacity-60 ml-0.5">({word.count})</span>
+                  </span>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* ── Checked-in Students ──────────────────────────────────────────── */}
         <section className="animate-fade-in-up stagger-3">
           <div className="flex justify-between items-center mb-md">
             <h3 className="text-xl font-extrabold text-on-surface font-display-hero">Sinh viên đã điểm danh</h3>
-            <span className="bg-tertiary-container text-on-tertiary-container text-xs font-bold px-sm py-xs rounded-full">
-              {students.length} người
-            </span>
+            <div className="flex items-center gap-sm">
+              {students.length > 0 && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExportCSV}
+                    className="px-sm py-xs rounded-lg font-bold text-xs bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all border border-primary/20 flex items-center gap-0.5"
+                    title="Xuất file báo cáo điểm danh Excel CSV"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">download</span>
+                    Xuất Excel
+                  </button>
+                  <button
+                    onClick={handleResetAttendance}
+                    className="px-sm py-xs rounded-lg font-bold text-xs bg-error/10 text-error hover:bg-error/20 active:scale-95 transition-all border border-error/20 flex items-center gap-0.5"
+                    title="Đặt lại toàn bộ điểm danh tuần này"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">restart_alt</span>
+                    Đặt lại
+                  </button>
+                </div>
+              )}
+              <span className="bg-tertiary-container text-on-tertiary-container text-xs font-bold px-sm py-xs rounded-full">
+                {students.length} người
+              </span>
+            </div>
           </div>
 
           {students.length === 0 ? (
@@ -336,6 +589,11 @@ export default function TeacherPage() {
                   <div className="flex-grow">
                     <p className="text-sm font-bold text-on-surface">{s.full_name}</p>
                     <p className="text-[11px] text-on-surface-variant">{s.game_name}</p>
+                    {s.student_input && (
+                      <p className="text-xs text-secondary mt-1 bg-surface-container-low px-2.5 py-1.5 rounded-lg border border-outline-variant/20 italic max-w-[320px] break-words">
+                        " {s.student_input} "
+                      </p>
+                    )}
                   </div>
                   <span className="text-primary font-extrabold text-sm">+{s.points_earned} đ</span>
                 </div>

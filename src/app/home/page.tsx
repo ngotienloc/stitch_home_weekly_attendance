@@ -15,6 +15,7 @@ export default function HomePage() {
   const [userId,         setUserId]         = useState<string | null>(null);
   const [selectedWeek,   setSelectedWeek]   = useState<number | null>(null);
   const [checkedIn,      setCheckedIn]      = useState(false);
+  const [checkedInWeeks, setCheckedInWeeks] = useState<Set<number>>(new Set());
   const [streak,         setStreak]         = useState(0);
   const [loading,        setLoading]        = useState(false);
   const [showModal,      setShowModal]      = useState(false);
@@ -23,6 +24,57 @@ export default function HomePage() {
   const [activeGame,     setActiveGame]     = useState<any>(null);
   // Safe default — localStorage only loaded after mount to avoid SSR mismatch
   const [teacherSettings, setTeacherSettings] = useState<TeacherSettings>({ ...DEFAULT_TEACHER_SETTINGS, games: ALL_GAMES.map(g => ({ ...g })) });
+
+  // GPS verification states
+  const [gpsVerified, setGpsVerified] = useState(false);
+  const [checkingGps, setCheckingGps] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [showGpsModal, setShowGpsModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ type: 'game' | 'direct', game?: Game } | null>(null);
+
+  // Lucky Spin states
+  const [showSpinModal, setShowSpinModal] = useState(false);
+  const [spinning, setSpinning] = useState(false);
+  const [spinResult, setSpinResult] = useState<number | null>(null);
+  const [rotation, setRotation] = useState(0);
+  const [pendingCheckInData, setPendingCheckInData] = useState<{ game?: Game, earnedPts?: number, studentInput?: string } | null>(null);
+
+  const SPIN_OPTIONS = [5, 10, 15, 20, 50, 100];
+
+  const handleStartSpin = () => {
+    if (spinning) return;
+    setSpinning(true);
+    
+    // Choose a random option index
+    const randomIndex = Math.floor(Math.random() * SPIN_OPTIONS.length);
+    const chosenValue = SPIN_OPTIONS[randomIndex];
+    
+    // Calculate rotation: 5 full spins (1800 deg) + offset for the index
+    // Each segment is 60 deg, centered at (index * 60 + 30) deg.
+    // To make it land at the top pointer (0 deg), the rotation should be:
+    const targetAngle = 1800 + (360 - (randomIndex * 60 + 30));
+    
+    setRotation(targetAngle);
+    
+    setTimeout(() => {
+      setSpinning(false);
+      setSpinResult(chosenValue);
+      
+      // Proceed with check-in after a short delay
+      setTimeout(() => {
+        setShowSpinModal(false);
+        if (pendingCheckInData) {
+          const finalPts = (pendingCheckInData.earnedPts || pendingCheckInData.game?.points || 10) + chosenValue;
+          const finalInput = pendingCheckInData.studentInput 
+            ? `${pendingCheckInData.studentInput} | Vòng quay: +${chosenValue}đ`
+            : `Vòng quay: +${chosenValue}đ`;
+          
+          executeCheckIn(pendingCheckInData.game, finalPts, finalInput);
+          setPendingCheckInData(null);
+        }
+      }, 1500);
+    }, 3000);
+  };
 
   const activeWeek = selectedWeek ?? teacherSettings.currentWeek;
 
@@ -99,18 +151,117 @@ export default function HomePage() {
       const { data: profile } = await supabase.from('profiles').select('streak').eq('id', user.id).single();
       if (profile) setStreak(profile.streak);
 
-      const { data: cis } = await supabase.from('check_ins').select('*').eq('user_id', user.id).eq('week_number', activeWeek);
-      setCheckedIn(!!(cis && cis.length > 0));
+      const { data: allCis } = await supabase.from('check_ins').select('week_number').eq('user_id', user.id);
+      if (allCis) {
+        setCheckedInWeeks(new Set(allCis.map((c: any) => c.week_number)));
+        setCheckedIn(allCis.some((c: any) => c.week_number === activeWeek));
+      } else {
+        setCheckedIn(false);
+      }
     }
     init();
   }, [activeWeek, userId]);
+
+  // ── GPS Geolocation helpers ────────────────────────────────────────────────
+  const HUST_COORDS = { lat: 21.0064, lng: 105.8431 };
+  const MAX_DISTANCE_METERS = 500; // 500m radius
+
+  const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3; // metres
+    const phi1 = lat1 * Math.PI/180;
+    const phi2 = lat2 * Math.PI/180;
+    const deltaPhi = (lat2-lat1) * Math.PI/180;
+    const deltaLambda = (lon2-lon1) * Math.PI/180;
+
+    const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // in metres
+  };
+
+  const handleGpsSuccess = (lat: number, lng: number) => {
+    const dist = getDistanceInMeters(lat, lng, HUST_COORDS.lat, HUST_COORDS.lng);
+    if (dist <= MAX_DISTANCE_METERS) {
+      setGpsVerified(true);
+      setGpsError(null);
+      
+      // Auto close and trigger pending action after 1s
+      setTimeout(() => {
+        setShowGpsModal(false);
+        if (pendingAction) {
+          if (pendingAction.type === 'game' && pendingAction.game) {
+            setActiveGame(pendingAction.game);
+          } else if (pendingAction.type === 'direct') {
+            handleCheckIn();
+          }
+          setPendingAction(null);
+        }
+      }, 1000);
+    } else {
+      setGpsError(`Cách ĐH Bách Khoa ${(dist / 1000).toFixed(2)} km. Vui lòng di chuyển vào khuôn viên trường (bán kính 500m) để điểm danh.`);
+    }
+  };
+
+  const handleRealGpsVerification = () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      setGpsError('Trình duyệt của bạn không hỗ trợ định vị GPS.');
+      return;
+    }
+
+    setCheckingGps(true);
+    setGpsError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCheckingGps(false);
+        const { latitude, longitude } = position.coords;
+        handleGpsSuccess(latitude, longitude);
+      },
+      (error) => {
+        setCheckingGps(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setGpsError('Quyền truy cập vị trí bị từ chối. Vui lòng bật GPS trên thiết bị.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            setGpsError('Không thể xác định vị trí. Vui lòng thử lại.');
+            break;
+          case error.TIMEOUT:
+            setGpsError('Hết thời gian yêu cầu vị trí. Vui lòng thử lại.');
+            break;
+          default:
+            setGpsError('Đã xảy ra lỗi khi lấy vị trí.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleMockGpsVerification = () => {
+    setCheckingGps(true);
+    setGpsError(null);
+
+    setTimeout(() => {
+      setCheckingGps(false);
+      handleGpsSuccess(HUST_COORDS.lat, HUST_COORDS.lng);
+    }, 800);
+  };
 
   // ── Check-in handler ───────────────────────────────────────────────────────
   const isCurrentWeek = activeWeek === teacherSettings.currentWeek;
   const isSessionOpenForSelectedWeek = isCurrentWeek && teacherSettings.sessionOpen;
 
-  const handleCheckIn = async (game?: Game, earnedPts?: number) => {
+  const handleCheckIn = async (game?: Game, earnedPts?: number, studentInput?: string) => {
     if (loading || !isSessionOpenForSelectedWeek) return;
+    setPendingCheckInData({ game, earnedPts, studentInput });
+    setSpinResult(null);
+    setRotation(0);
+    setShowSpinModal(true);
+  };
+
+  const executeCheckIn = async (game?: Game, earnedPts?: number, studentInput?: string) => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -125,12 +276,18 @@ export default function HomePage() {
         points_earned: pts,
         week_number: activeWeek,
         is_bonus: (pts >= 50),
+        student_input: studentInput || null,
       };
 
       const { error } = await supabase.from('check_ins').insert(record);
       if (error) throw error;
 
       setCheckedIn(true);
+      setCheckedInWeeks(prev => {
+        const next = new Set(prev);
+        next.add(activeWeek);
+        return next;
+      });
       setStreak(prev => prev + 1);
       setLastPoints(pts);
       setLastGame(gameName);
@@ -172,22 +329,59 @@ export default function HomePage() {
               </span>
             </div>
 
-            {/* 16-week progress pills */}
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-2">
+            {/* GPS verification card */}
+            {isSessionOpenForSelectedWeek && !checkedIn && (
+              <div className="mt-md flex items-center justify-between bg-white/10 rounded-xl px-md py-sm border border-white/5 backdrop-blur-sm">
+                <div className="flex items-center gap-xs">
+                  <span className="material-symbols-outlined text-[18px]">
+                    {gpsVerified ? 'location_on' : 'location_off'}
+                  </span>
+                  <span className="text-[11px] font-semibold">
+                    {gpsVerified ? 'Đã xác minh vị trí tại ĐH Bách Khoa HN' : 'Chưa xác minh vị trí lớp học'}
+                  </span>
+                </div>
+                {!gpsVerified && (
+                  <button
+                    onClick={() => {
+                      setPendingAction(null);
+                      setShowGpsModal(true);
+                    }}
+                    className="bg-white text-primary text-[10px] font-bold px-3 py-1.5 rounded-lg shadow hover:bg-white/95 active:scale-95 transition-all flex items-center gap-0.5"
+                  >
+                    <span className="material-symbols-outlined text-[12px]">my_location</span>
+                    Xác minh
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* 16-week progress circles */}
+            <div className="flex gap-2.5 overflow-x-auto no-scrollbar py-3 items-center">
               {Array.from({ length: TOTAL_WEEKS }, (_, i) => i + 1).map(w => {
-                let cls = 'bg-white/20';
-                if (w < activeWeek || (w === activeWeek && checkedIn)) cls = 'bg-tertiary-fixed shadow-sm';
-                else if (w === activeWeek && !checkedIn) cls = 'shimmer-pill ring-4 ring-white/30';
+                const isChecked = checkedInWeeks.has(w);
                 const isSelected = w === activeWeek;
+                const isCurrent = w === teacherSettings.currentWeek;
+
+                let cls = '';
+                if (isChecked) {
+                  cls = 'bg-tertiary-fixed text-on-tertiary-fixed shadow-sm';
+                } else if (isCurrent) {
+                  cls = 'shimmer-pill ring-4 ring-white/30 text-white';
+                } else {
+                  cls = 'bg-white/10 text-white/50 border border-white/5';
+                }
+
                 return (
                   <button
                     key={w}
                     onClick={() => setSelectedWeek(w)}
-                    className={`flex-shrink-0 h-3.5 rounded-full transition-all duration-300 cursor-pointer ${
-                      isSelected ? 'w-12 ring-2 ring-white' : 'w-8'
+                    className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 cursor-pointer ${
+                      isSelected ? 'ring-2 ring-white scale-110 shadow-md' : 'opacity-80 hover:opacity-100'
                     } ${cls}`}
                     title={`Tuần ${w}`}
-                  />
+                  >
+                    {isChecked ? '✓' : w}
+                  </button>
                 );
               })}
             </div>
@@ -233,7 +427,14 @@ export default function HomePage() {
               {enabledGames.map((game, idx) => (
                 <div
                   key={game.id}
-                  onClick={() => setActiveGame(game)}
+                  onClick={() => {
+                    if (!gpsVerified) {
+                      setPendingAction({ type: 'game', game });
+                      setShowGpsModal(true);
+                    } else {
+                      setActiveGame(game);
+                    }
+                  }}
                   className="animate-fade-in-up bg-white p-md rounded-xxl flex items-center gap-md border border-outline-variant/20 shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-all duration-200 active:scale-95 hover:shadow-md cursor-pointer"
                   style={{ animationDelay: `${0.05 * idx}s` }}
                 >
@@ -260,10 +461,15 @@ export default function HomePage() {
         <div className="animate-fade-in-up stagger-4 mt-xl flex flex-col items-center">
           <button
             onClick={() => {
-              if (enabledGames.length > 0) {
-                setActiveGame(enabledGames[0]);
+              if (!gpsVerified) {
+                setPendingAction({ type: enabledGames.length > 0 ? 'game' : 'direct', game: enabledGames[0] });
+                setShowGpsModal(true);
               } else {
-                handleCheckIn();
+                if (enabledGames.length > 0) {
+                  setActiveGame(enabledGames[0]);
+                } else {
+                  handleCheckIn();
+                }
               }
             }}
             disabled={checkedIn || loading || !isSessionOpenForSelectedWeek}
@@ -295,7 +501,10 @@ export default function HomePage() {
             )}
           </button>
           {!checkedIn && isSessionOpenForSelectedWeek && (
-            <p className="text-xs text-on-surface-variant mt-md font-semibold">Yêu cầu bật kết nối Bluetooth &amp; Vị trí</p>
+            <p className="text-xs text-on-surface-variant mt-md font-semibold flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">info</span>
+              Yêu cầu bật GPS &amp; xác minh vị trí tại Bách Khoa
+            </p>
           )}
         </div>
       </main>
@@ -344,12 +553,158 @@ export default function HomePage() {
           game={activeGame}
           weekNumber={activeWeek}
           streak={streak}
-          onComplete={(earnedPts) => {
+          onComplete={(earnedPts, studentInput) => {
             setActiveGame(null);
-            handleCheckIn(activeGame, earnedPts);
+            handleCheckIn(activeGame, earnedPts, studentInput);
           }}
           onClose={() => setActiveGame(null)}
         />
+      )}
+
+      {/* ── GPS Verification Modal ────────────────────────────────────────── */}
+      {showGpsModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm p-container-margin">
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xxl p-lg w-full max-w-[420px] shadow-2xl text-center overflow-hidden animate-pop-in relative">
+            
+            {/* Pulsing map pin icon */}
+            <div className="w-16 h-16 bg-primary/10 text-primary rounded-full mx-auto flex items-center justify-center mb-md mt-sm shadow-inner cta-pulse">
+              <span className="material-symbols-outlined text-[36px]" style={{ fontVariationSettings: "'FILL' 1" }}>location_on</span>
+            </div>
+
+            <h3 className="text-xl font-extrabold text-on-surface font-display-hero tracking-tight">Xác Minh Vị Trí Lớp Học</h3>
+            <p className="text-xs text-on-surface-variant font-medium mt-xs leading-relaxed">
+              Hệ thống yêu cầu bạn bật GPS và xác định đúng vị trí tại <span className="font-bold text-primary">Đại học Bách Khoa Hà Nội</span> (1 Đại Cồ Việt) để tham gia thử thách điểm danh.
+            </p>
+
+            {/* GPS coordinates & errors log */}
+            <div className="my-md p-md rounded-xl bg-surface-container-low border border-outline-variant/20 text-left space-y-sm">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-on-surface-variant">Tọa độ yêu cầu:</span>
+                <span className="font-mono text-on-surface font-semibold">21.0064, 105.8431</span>
+              </div>
+              
+              {checkingGps && (
+                <div className="flex items-center gap-xs text-xs text-primary font-bold animate-pulse">
+                  <span className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  Đang lấy tọa độ thực tế từ trình duyệt...
+                </div>
+              )}
+
+              {gpsError && (
+                <div className="text-xs text-error font-semibold leading-tight bg-error-container/10 p-sm rounded border border-error/20">
+                  ⚠️ {gpsError}
+                </div>
+              )}
+              
+              {gpsVerified && (
+                <div className="text-xs text-success font-bold leading-tight bg-tertiary-container/10 p-sm rounded border border-tertiary/20 flex items-center gap-xs">
+                  <span className="material-symbols-outlined text-[16px]">task_alt</span>
+                  Xác minh thành công! Vị trí của bạn hợp lệ.
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-sm">
+              <button
+                onClick={handleRealGpsVerification}
+                disabled={checkingGps || gpsVerified}
+                className="w-full py-md bg-primary text-on-primary font-bold rounded-xl hover:bg-primary/95 transition-all active:scale-95 shadow-md flex items-center justify-center gap-xs disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">my_location</span>
+                Xác minh GPS thực tế
+              </button>
+              
+              <button
+                onClick={handleMockGpsVerification}
+                disabled={checkingGps || gpsVerified}
+                className="w-full py-md bg-secondary-container text-on-secondary-container font-bold rounded-xl hover:bg-secondary-container/90 transition-all active:scale-95 border border-outline-variant/10 flex items-center justify-center gap-xs disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">cell_tower</span>
+                Giả lập vị trí tại Bách Khoa (Demo)
+              </button>
+
+              <button
+                onClick={() => { setShowGpsModal(false); setGpsError(null); }}
+                disabled={checkingGps}
+                className="w-full py-sm text-on-surface-variant hover:text-on-surface font-bold rounded-xl text-sm transition-all active:scale-95"
+              >
+                Hủy bỏ
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── Lucky Spin Wheel Modal ────────────────────────────────────────── */}
+      {showSpinModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/75 backdrop-blur-sm p-container-margin">
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xxl p-lg w-full max-w-[420px] shadow-2xl text-center overflow-hidden animate-pop-in relative">
+            
+            <h3 className="text-xl font-extrabold text-primary font-display-hero tracking-tight">Vòng Quay May Mắn! 🎡</h3>
+            <p className="text-xs text-on-surface-variant font-medium mt-xs">
+              Điểm danh thành công! Hãy quay vòng quay để nhận thêm điểm thưởng ngẫu nhiên.
+            </p>
+
+            {/* The Wheel */}
+            <div className="relative my-lg flex justify-center items-center">
+              {/* Selector arrow */}
+              <div className="absolute -top-4 z-10 w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-t-[25px] border-t-error filter drop-shadow"></div>
+              
+              <div
+                className="w-56 h-56 rounded-full border-4 border-primary relative overflow-hidden shadow-xl transition-transform ease-out duration-[3000ms]"
+                style={{
+                  transform: `rotate(${rotation}deg)`,
+                  background: 'conic-gradient(#ff8a80 0deg 60deg, #ff80ab 60deg 120deg, #ea80fc 120deg 180deg, #b388ff 180deg 240deg, #8c9eff 240deg 300deg, #ffd180 300deg 360deg)'
+                }}
+              >
+                {SPIN_OPTIONS.map((val, idx) => {
+                  const angle = 60;
+                  const rotateDeg = idx * angle + 30; // center of segment
+                  return (
+                    <div
+                      key={idx}
+                      className="absolute text-sm font-extrabold text-white"
+                      style={{
+                        top: '50%',
+                        left: '50%',
+                        transform: `translate(-50%, -50%) rotate(${rotateDeg}deg) translate(0, -70px)`,
+                        transformOrigin: 'center center',
+                      }}
+                    >
+                      +{val}đ
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* Center peg */}
+              <div className="absolute inset-0 m-auto w-10 h-10 bg-white rounded-full border-2 border-primary shadow flex items-center justify-center font-bold text-xs select-none">
+                ⭐
+              </div>
+            </div>
+
+            {/* Status & Spin Button */}
+            <div className="space-y-sm">
+              {spinResult !== null ? (
+                <div className="text-sm font-extrabold text-tertiary animate-bounce">
+                  🎉 Chúc mừng! Bạn nhận được +{spinResult} điểm!
+                </div>
+              ) : (
+                <button
+                  onClick={handleStartSpin}
+                  disabled={spinning}
+                  className="w-full py-md bg-primary text-on-primary font-bold rounded-xl hover:bg-primary/95 transition-all active:scale-95 shadow-md flex items-center justify-center gap-xs disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined animate-spin-slow">autorenew</span>
+                  {spinning ? 'Đang quay...' : 'QUAY NGAY!'}
+                </button>
+              )}
+            </div>
+
+          </div>
+        </div>
       )}
 
       <BottomNav />
