@@ -76,6 +76,9 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const [reviewAns, setReviewAns] = useState<Record<number, string>>({});
   const [hintShown, setHintShown] = useState(false);
   const timerRef = useRef<any>(null);
+  
+  const [qrError, setQrError] = useState<string | null>(null);
+  const html5QrCodeRef = useRef<any>(null);
 
   const finish = (p: number, inputVal?: string | null) => {
     setPts(p);
@@ -100,6 +103,71 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
       setTimeout(() => { setOpponent(names[Math.floor(Math.random() * names.length)]); setSearching(false); }, 1800);
     }
   }, [game.id]);
+
+  // Game 3: QR scanner lifecycle
+  useEffect(() => {
+    let html5QrCode: any = null;
+    if (game.id === 3 && searching) {
+      // Load html5-qrcode dynamically for safe SSR
+      const { Html5Qrcode } = require('html5-qrcode');
+      
+      const timer = setTimeout(() => {
+        const element = document.getElementById('qr-reader');
+        if (!element) return;
+        
+        try {
+          html5QrCode = new Html5Qrcode("qr-reader");
+          html5QrCodeRef.current = html5QrCode;
+          
+          html5QrCode.start(
+            { facingMode: "environment" },
+            {
+              fps: 10,
+              qrbox: { width: 180, height: 180 }
+            },
+            (decodedText: string) => {
+              const expectedCode = `StitchHomeWeeklyAttendance_Teacher_CheckIn_Week_${weekNumber}`;
+              if (decodedText === expectedCode) {
+                if (html5QrCode) {
+                  html5QrCode.stop().then(() => {
+                    finish(10, 'Quét mã QR GV thành công');
+                  }).catch((err: any) => {
+                    console.error("Stop scanner error", err);
+                    finish(10, 'Quét mã QR GV thành công');
+                  });
+                } else {
+                  finish(10, 'Quét mã QR GV thành công');
+                }
+              } else {
+                setQrError('Mã QR không hợp lệ cho tuần học này!');
+              }
+            },
+            () => {
+              // Silence scanner frame errors
+            }
+          ).catch((err: any) => {
+            console.error("Camera access error", err);
+            setQrError("Không thể truy cập camera. Vui lòng cấp quyền sử dụng camera.");
+          });
+        } catch (e) {
+          console.error("Failed to construct Html5Qrcode", e);
+        }
+      }, 300);
+
+      return () => {
+        clearTimeout(timer);
+        if (html5QrCode) {
+          try {
+            if (html5QrCode.isScanning) {
+              html5QrCode.stop().catch((err: any) => console.error("Clean stop error", err));
+            }
+          } catch (err) {
+            console.error("Clean stop error", err);
+          }
+        }
+      };
+    }
+  }, [searching, game.id, weekNumber]);
 
   return (
     <GameModalContext.Provider value={{ game, weekNumber, onClose, pts }}>
@@ -156,7 +224,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
                     📷 Quét mã GV
                   </button>
                   <button
-                    onClick={() => setSelected(1)}
+                    onClick={() => { setSelected(1); setSearching(false); setQrError(null); }}
                     className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${qrTab === 1 ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high'
                       }`}
                   >
@@ -169,15 +237,30 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
                     <p className="text-sm text-on-surface-variant font-medium">Đặt mã QR của Giảng viên vào khung quét:</p>
 
                     {searching ? (
-                      <div className="space-y-md">
-                        <div className="relative w-48 h-48 mx-auto border-4 border-green-500/30 rounded-xl overflow-hidden bg-black/20 flex items-center justify-center shadow-inner">
+                      <div className="space-y-md flex flex-col items-center">
+                        <div className="relative w-48 h-48 mx-auto border-4 border-green-500/30 rounded-xl overflow-hidden bg-black flex items-center justify-center shadow-inner">
+                          <div id="qr-reader" className="w-full h-full object-cover absolute inset-0 animate-pulse" />
                           {/* Glowing grid */}
-                          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(34,197,94,0.1)_1px,transparent_1px),linear-gradient(to_right,rgba(34,197,94,0.1)_1px,transparent_1px)] bg-[size:16px_16px] animate-pulse" />
+                          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(34,197,94,0.1)_1px,transparent_1px),linear-gradient(to_right,rgba(34,197,94,0.1)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none" />
                           {/* Laser line */}
-                          <div className="absolute left-0 right-0 h-1 bg-green-500 shadow-[0_0_12px_#22c55e] top-0 animate-[bounce_1.5s_infinite]" />
-                          <span className="material-symbols-outlined text-5xl text-green-500/40 animate-pulse">qr_code_scanner</span>
+                          <div className="absolute left-0 right-0 h-1 bg-green-500 shadow-[0_0_12px_#22c55e] top-0 animate-[bounce_1.5s_infinite] pointer-events-none" />
                         </div>
-                        <p className="text-xs text-green-600 font-bold animate-pulse">Đang quét mã QR của giảng viên...</p>
+                        {qrError ? (
+                          <p className="text-xs text-error font-bold leading-tight bg-error-container/10 p-sm rounded border border-error/20 max-w-[220px]">
+                            ⚠️ {qrError}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-green-600 font-bold animate-pulse">Đang quét mã QR của giảng viên...</p>
+                        )}
+                        <button
+                          onClick={() => {
+                            setSearching(false);
+                            setQrError(null);
+                          }}
+                          className="px-md py-xs rounded-lg text-xs font-bold bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest active:scale-95 transition-all mt-sm"
+                        >
+                          Hủy quét
+                        </button>
                       </div>
                     ) : (
                       <div className="space-y-md">
@@ -186,10 +269,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
                         </div>
                         <Btn onClick={() => {
                           setSearching(true);
-                          setTimeout(() => {
-                            setSearching(false);
-                            finish(10);
-                          }, 2000);
+                          setQrError(null);
                         }}>
                           📸 Bắt đầu quét QR (+10 điểm)
                         </Btn>
