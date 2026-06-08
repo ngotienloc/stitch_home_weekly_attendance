@@ -83,8 +83,9 @@ export default function TeacherPage() {
     ]);
     
     students.forEach(s => {
-      if (s.student_input) {
-        const cleanText = s.student_input.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, ' ');
+      if (s.student_input && !s.student_input.startsWith('Vòng quay:')) {
+        const textWithoutSpin = s.student_input.split(' | Vòng quay:')[0];
+        const cleanText = textWithoutSpin.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, ' ');
         const words = cleanText.split(/\s+/);
         words.forEach(w => {
           const trimmed = w.trim();
@@ -508,7 +509,7 @@ export default function TeacherPage() {
         )}
 
         {/* ── Word Cloud Section ───────────────────────────────────────────── */}
-        {mounted && students.some(s => s.student_input) && (
+        {mounted && students.some(s => s.student_input && !s.student_input.startsWith('Vòng quay:')) && (
           <section className="bg-white p-lg rounded-xxl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-outline-variant/15 mt-sm">
             <h3 className="text-sm font-bold text-on-surface mb-sm flex items-center gap-1">
               <span className="material-symbols-outlined text-[18px] text-primary">cloud</span>
