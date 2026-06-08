@@ -534,14 +534,14 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
         const { ideas, endTime, state, scores } = payload;
         setVotingIdeas(ideas || []);
         setVotingEndTime(endTime || 0);
-        setVotingState(state || 'voting');
+        setVotingState(state === 'active' ? 'voting' : (state || 'voting'));
         setVotingScores(scores || {});
       })
       .on('broadcast', { event: 'sync_voting_state' }, ({ payload }: { payload: any }) => {
         const { ideas, endTime, state, scores } = payload;
         setVotingIdeas(ideas || []);
         setVotingEndTime(endTime || 0);
-        setVotingState(state || 'voting');
+        setVotingState(state === 'active' ? 'voting' : (state || 'voting'));
         setVotingScores(scores || {});
       })
       .on('broadcast', { event: 'update_leaderboard' }, ({ payload }: { payload: any }) => {

@@ -146,7 +146,7 @@ export default function TeacherPage() {
             payload: {
               ideas: teacherVotingIdeas.map((label, idx) => ({ id: `idea_${idx}`, label })),
               endTime,
-              state: teacherVotingState,
+              state: teacherVotingState === 'active' ? 'voting' : teacherVotingState,
               scores: votingScoresRef.current
             }
           });
