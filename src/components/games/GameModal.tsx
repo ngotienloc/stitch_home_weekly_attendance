@@ -33,7 +33,7 @@ const Wrap = ({ children }: { children: React.ReactNode }) => {
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
-        <div className="p-lg">{children}</div>
+        <div className="p-lg overflow-y-auto max-h-[calc(100vh-140px)]">{children}</div>
       </div>
     </div>
   );
@@ -93,6 +93,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const [searching, setSearching] = useState(false);
   const [opponent, setOpponent] = useState('');
   const [reviewAns, setReviewAns] = useState<Record<number, string>>({});
+  const [activeTeamChallenge, setActiveTeamChallenge] = useState(gc.teamChallenge || '');
   const [hintShown, setHintShown] = useState(false);
   const timerRef = useRef<any>(null);
   
@@ -119,8 +120,8 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const [currentChatText, setCurrentChatText] = useState<string>('');
   const [solutionText, setSolutionText] = useState<string>('');
   const [activeGroupCheckins, setActiveGroupCheckins] = useState<any[]>([]);
-  const botTimerRef = useRef<any[]>([]);
   const [activeGroupTab, setActiveGroupTab] = useState<'board' | 'chat'>('board');
+  const [onlineMembers, setOnlineMembers] = useState<{ [id: string]: { name: string; lastSeen: number } }>({});
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -369,7 +370,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     }
   }, [game.id, duelStep, duelPlayerAns, duelOpponentAns]);
 
-  // Game 4 (Team Challenge) database query for members
+  // Game 4 (Team Challenge) database query for members and checking existing submission
   useEffect(() => {
     if (game.id === 4 && selectedGroup) {
       if (isMockEnabled) {
@@ -390,6 +391,13 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
                 student_input: c.student_input
               }));
               setActiveGroupCheckins(formatted);
+
+              // Check if someone in the same group has already submitted
+              const groupCheckin = data.find((c: any) => c.student_input && c.student_input.startsWith(selectedGroup));
+              if (groupCheckin) {
+                // Automatically complete for this student!
+                finish(20, groupCheckin.student_input);
+              }
             }
           });
       }
@@ -400,7 +408,15 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   useEffect(() => {
     if (game.id !== 4 || !selectedGroup || !currentUser) return;
 
-    const groupSlug = selectedGroup.replace(/\s+/g, '_').toLowerCase();
+    // Normalize group slug to ASCII: e.g. "Nhóm 1" -> "nhom_1"
+    const groupSlug = selectedGroup
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D")
+      .replace(/[^a-zA-Z0-9_-]/g, "_")
+      .toLowerCase();
+
     const channelName = isMockEnabled ? `mock_group_${groupSlug}` : `real_group_${groupSlug}`;
     const channel = supabase.channel(channelName, {
       config: {
@@ -425,6 +441,17 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
           return [...prev, msg];
         });
       })
+      .on('broadcast', { event: 'group_ping' }, ({ payload }: { payload: any }) => {
+        const { userId, name } = payload;
+        setOnlineMembers(prev => ({
+          ...prev,
+          [userId]: { name, lastSeen: Date.now() }
+        }));
+      })
+      .on('broadcast', { event: 'submit_solution' }, ({ payload }: { payload: any }) => {
+        const { solution } = payload;
+        finish(20, solution);
+      })
       .subscribe();
 
     return () => {
@@ -435,117 +462,66 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     };
   }, [game.id, selectedGroup, currentUser]);
 
-  // Game 4: AI Bot simulation
+  // Periodic group presence ping
   useEffect(() => {
-    if (game.id === 4 && selectedGroup) {
-      botTimerRef.current.forEach(t => clearTimeout(t));
-      botTimerRef.current = [];
+    if (game.id !== 4 || !selectedGroup || !currentUser) return;
+    const interval = setInterval(() => {
+      if (groupChannelRef.current) {
+        groupChannelRef.current.send({
+          type: 'broadcast',
+          event: 'group_ping',
+          payload: { userId: currentUser.id, name: currentUser.full_name }
+        });
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [game.id, selectedGroup, currentUser]);
 
-      setStickyNotes([
-        {
-          id: 'bot-1',
-          name: 'Lê Hải Yến',
-          content: 'Nghiên cứu mô hình làn đường thông minh cho xe bus điện BRT',
-          color: 'bg-emerald-100 border-emerald-300 text-emerald-900'
-        }
-      ]);
-      setChatMessages([
-        {
-          id: 'chat-bot-1',
-          sender: 'Nguyễn Hoàng Nam',
-          text: 'Chào mọi người! Nhóm mình bắt đầu thảo luận thiết kế giải pháp giao thông nhé.',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
-      ]);
+  // Listen to class global topic updates from teacher
+  useEffect(() => {
+    if (game.id !== 4) return;
+    
+    const channel = supabase.channel('class_session_global');
+    
+    channel.on('broadcast', { event: 'update_topic' }, ({ payload }: { payload: any }) => {
+      const { week, topic } = payload;
+      if (week === 4 && topic) {
+        saveGameContent(4, { teamChallenge: topic });
+        setActiveTeamChallenge(topic);
+      }
+    }).subscribe();
 
-      const t1 = setTimeout(() => {
-        setChatMessages(prev => [
-          ...prev,
-          {
-            id: 'chat-bot-2',
-            sender: 'Lê Hải Yến',
-            text: 'Mình đã ghim 1 ý tưởng lên bảng. Mình nghĩ nên có làn đường riêng cho xe bus điện BRT để tránh kẹt xe.',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        ]);
-      }, 4000);
-      botTimerRef.current.push(t1);
-
-      const t2 = setTimeout(() => {
-        setStickyNotes(prev => [
-          ...prev,
-          {
-            id: 'bot-2',
-            name: 'Nguyễn Hoàng Nam',
-            content: 'Áp dụng cảm biến AI để tự động điều chỉnh chu kỳ đèn giao thông theo lưu lượng thực tế',
-            color: 'bg-amber-100 border-amber-300 text-amber-900'
-          }
-        ]);
-        setChatMessages(prev => [
-          ...prev,
-          {
-            id: 'chat-bot-3',
-            sender: 'Nguyễn Hoàng Nam',
-            text: 'Mình mới dán ý tưởng dùng đèn giao thông thông minh AI lên bảng rồi đó.',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        ]);
-      }, 8000);
-      botTimerRef.current.push(t2);
-
-      const t3 = setTimeout(() => {
-        setChatMessages(prev => [
-          ...prev,
-          {
-            id: 'chat-bot-4',
-            sender: 'Trần Thị Lan',
-            text: 'Ý tưởng của Nam rất thực tế. Mình sẽ bổ sung ý tưởng về trạm sạc điện công cộng.',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        ]);
-      }, 13000);
-      botTimerRef.current.push(t3);
-
-      const t4 = setTimeout(() => {
-        setStickyNotes(prev => [
-          ...prev,
-          {
-            id: 'bot-3',
-            name: 'Trần Thị Lan',
-            content: 'Mở rộng mạng lưới trạm sạc điện công cộng tại các bãi đỗ xe trung chuyển ngoại ô',
-            color: 'bg-rose-100 border-rose-300 text-rose-900'
-          }
-        ]);
-      }, 16000);
-      botTimerRef.current.push(t4);
-    }
+    // Request the current topic from teacher after a small delay
+    const timer = setTimeout(() => {
+      channel.send({
+        type: 'broadcast',
+        event: 'request_current_topic',
+        payload: { week: 4 }
+      });
+    }, 5000);
 
     return () => {
-      botTimerRef.current.forEach(t => clearTimeout(t));
-      botTimerRef.current = [];
+      supabase.removeChannel(channel);
+      clearTimeout(timer);
     };
-  }, [game.id, selectedGroup]);
+  }, [game.id]);
 
   const getGroupMembers = () => {
     const names = new Set<string>();
+    if (currentUser) {
+      names.add(currentUser.full_name);
+    }
+    const now = Date.now();
+    Object.keys(onlineMembers).forEach(id => {
+      if (now - onlineMembers[id].lastSeen < 8000) {
+        names.add(onlineMembers[id].name);
+      }
+    });
     activeGroupCheckins.forEach(c => {
       if (c.student_input && c.student_input.startsWith(selectedGroup || '')) {
         names.add(c.full_name);
       }
     });
-
-    if (currentUser) {
-      names.add(currentUser.full_name);
-    }
-
-    const defaultBots = ['Lê Hải Yến', 'Trần Thị Lan', 'Nguyễn Hoàng Nam', 'Phạm Gia Bảo'];
-    let idx = 0;
-    while (names.size < 4 && idx < defaultBots.length) {
-      if (defaultBots[idx] !== currentUser?.full_name) {
-        names.add(defaultBots[idx]);
-      }
-      idx++;
-    }
     return Array.from(names);
   };
 
@@ -601,6 +577,15 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     const notesSummary = stickyNotes.map(n => `[${n.name}]: ${n.content}`).join('; ');
     const solutionSummary = solutionText.trim() || 'Thảo luận nhóm thiết kế giải pháp';
     const finalInput = `${selectedGroup} | Ý tưởng: ${notesSummary} | Giải pháp: ${solutionSummary}`;
+    
+    if (groupChannelRef.current) {
+      groupChannelRef.current.send({
+        type: 'broadcast',
+        event: 'submit_solution',
+        payload: { solution: finalInput }
+      });
+    }
+
     finish(20, finalInput);
   };
 
@@ -922,7 +907,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
                         Đổi nhóm
                       </button>
                     </div>
-                    <p className="text-xs font-bold text-on-surface leading-tight mt-1">{gc.teamChallenge}</p>
+                    <p className="text-xs font-bold text-on-surface leading-tight mt-1">{activeTeamChallenge || gc.teamChallenge}</p>
                   </div>
 
                   {/* Tabs Selector */}

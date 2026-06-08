@@ -28,6 +28,7 @@ export default function TeacherPage() {
   const [completedWeeks, setCompletedWeeks] = useState<Set<number>>(new Set());
 
   const [customSecretQuestion, setCustomSecretQuestion] = useState('');
+  const [customTeamChallenge, setCustomTeamChallenge] = useState('');
   const [customQuizQuestions, setCustomQuizQuestions] = useState<any[]>([]);
 
   // Game 6 (Lucky hand-raiser spinner) states
@@ -76,10 +77,41 @@ export default function TeacherPage() {
       const content2 = getGameContent(2);
       setCustomSecretQuestion(content2.secretQuestion || '');
 
+      const content4 = getGameContent(4);
+      setCustomTeamChallenge(content4.teamChallenge || '');
+
       const content9 = getGameContent(9);
       setCustomQuizQuestions(content9.quizQuestions || []);
     }
   }, [mounted, settings.currentWeek]);
+
+  // Realtime channel for teacher to sync topics
+  useEffect(() => {
+    if (!mounted) return;
+    const channel = supabase.channel('class_session_global', {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+
+    channel
+      .on('broadcast', { event: 'request_current_topic' }, ({ payload }: { payload: any }) => {
+        const { week } = payload;
+        if (week === 4) {
+          const content4 = getGameContent(4);
+          channel.send({
+            type: 'broadcast',
+            event: 'update_topic',
+            payload: { week: 4, topic: content4.teamChallenge || '' }
+          });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [mounted]);
 
   // Word Cloud calculation
   const getWordCloudWords = () => {
@@ -528,7 +560,7 @@ export default function TeacherPage() {
         </section>
 
         {/* Game Customisation Card */}
-        {mounted && (settings.currentWeek === 2 || settings.currentWeek === 9 || settings.currentWeek === 6) && (
+        {mounted && (settings.currentWeek === 2 || settings.currentWeek === 4 || settings.currentWeek === 9 || settings.currentWeek === 6) && (
           <section className="bg-white p-lg rounded-xxl shadow-sm border border-outline-variant/20 animate-fade-in-up mt-sm">
             <h4 className="text-sm font-bold text-on-surface mb-sm flex items-center gap-1">
               <span className="material-symbols-outlined text-[18px] text-primary">
@@ -549,6 +581,30 @@ export default function TeacherPage() {
                   }}
                   className="w-full px-md py-sm rounded-xl border border-outline-variant/40 text-sm focus:outline-none focus:border-primary bg-surface-container-low"
                   placeholder="Ví dụ: Quy trình thiết kế kỹ thuật gồm mấy bước chính?"
+                />
+              </div>
+            )}
+
+            {settings.currentWeek === 4 && (
+              <div className="space-y-sm">
+                <label className="text-xs font-bold text-on-surface-variant">Nhập chủ đề thảo luận nhóm:</label>
+                <textarea
+                  value={customTeamChallenge}
+                  onChange={(e) => {
+                    setCustomTeamChallenge(e.target.value);
+                    saveGameContent(4, { teamChallenge: e.target.value });
+                    
+                    // Broadcast immediately to online students
+                    const channel = supabase.channel('class_session_global');
+                    channel.send({
+                      type: 'broadcast',
+                      event: 'update_topic',
+                      payload: { week: 4, topic: e.target.value }
+                    });
+                  }}
+                  rows={3}
+                  className="w-full px-md py-sm rounded-xl border border-outline-variant/40 text-sm focus:outline-none focus:border-primary bg-surface-container-low"
+                  placeholder="Ví dụ: Thiết kế giải pháp giải quyết vấn đề giao thông đô thị trong 10 phút."
                 />
               </div>
             )}
