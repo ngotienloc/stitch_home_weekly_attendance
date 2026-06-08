@@ -50,6 +50,8 @@ export default function TeacherPage() {
   const [teacherVotedUsersCount, setTeacherVotedUsersCount] = useState<number>(0);
   const teacherVotingTimerRef = useRef<any>(null);
   const votingScoresRef = useRef<Record<string, number>>({});
+  const votingChannelRef = useRef<any>(null);
+  const classSessionChannelRef = useRef<any>(null);
 
   // Game 1 (Đại chiến Bom) states
   const [bombActiveUsers, setBombActiveUsers] = useState<{ [id: string]: { name: string; lastSeen: number } }>({});
@@ -82,6 +84,7 @@ export default function TeacherPage() {
 
   // Game 15 (Đại chiến Phản xạ) states
   const [reflexClicks, setReflexClicks] = useState<{ name: string; time: number }[]>([]);
+  const reflexChannelRef = useRef<any>(null);
 
   // Load settings
   const loadSettings = useCallback(async () => {
@@ -139,6 +142,7 @@ export default function TeacherPage() {
         broadcast: { self: false }
       }
     });
+    classSessionChannelRef.current = channel;
 
     channel
       .on('broadcast', { event: 'request_current_topic' }, ({ payload }: { payload: any }) => {
@@ -156,8 +160,16 @@ export default function TeacherPage() {
 
     return () => {
       supabase.removeChannel(channel);
+      classSessionChannelRef.current = null;
     };
   }, [mounted]);
+
+  const votingStateRef = useRef(teacherVotingState);
+  votingStateRef.current = teacherVotingState;
+  const votingIdeasRef = useRef(teacherVotingIdeas);
+  votingIdeasRef.current = teacherVotingIdeas;
+  const votingTimeLeftRef = useRef(teacherVotingTimeLeft);
+  votingTimeLeftRef.current = teacherVotingTimeLeft;
 
   // Game 11: Realtime event listener for student votes
   useEffect(() => {
@@ -167,18 +179,19 @@ export default function TeacherPage() {
         broadcast: { self: false }
       }
     });
+    votingChannelRef.current = channel;
 
     channel
       .on('broadcast', { event: 'request_voting_state' }, () => {
-        if (teacherVotingState !== 'idle') {
-          const endTime = Date.now() + (teacherVotingTimeLeft * 1000);
+        if (votingStateRef.current !== 'idle') {
+          const endTime = Date.now() + (votingTimeLeftRef.current * 1000);
           channel.send({
             type: 'broadcast',
             event: 'sync_voting_state',
             payload: {
-              ideas: teacherVotingIdeas.map((label, idx) => ({ id: `idea_${idx}`, label })),
+              ideas: votingIdeasRef.current.map((label, idx) => ({ id: `idea_${idx}`, label })),
               endTime,
-              state: teacherVotingState === 'active' ? 'voting' : teacherVotingState,
+              state: votingStateRef.current === 'active' ? 'voting' : votingStateRef.current,
               scores: votingScoresRef.current
             }
           });
@@ -186,7 +199,7 @@ export default function TeacherPage() {
       })
       .on('broadcast', { event: 'submit_vote' }, ({ payload }: { payload: any }) => {
         const { votes } = payload;
-        if (teacherVotingState === 'active') {
+        if (votingStateRef.current === 'active') {
           const nextScores = { ...votingScoresRef.current };
           if (votes[0]) nextScores[votes[0]] = (nextScores[votes[0]] || 0) + 3;
           if (votes[1]) nextScores[votes[1]] = (nextScores[votes[1]] || 0) + 2;
@@ -207,8 +220,9 @@ export default function TeacherPage() {
 
     return () => {
       supabase.removeChannel(channel);
+      votingChannelRef.current = null;
     };
-  }, [mounted, teacherVotingState, teacherVotingIdeas, teacherVotingTimeLeft]);
+  }, [mounted]);
 
   // Game 1 (Đại chiến Bom) teacher realtime effect
   useEffect(() => {
@@ -406,6 +420,7 @@ export default function TeacherPage() {
         broadcast: { self: true }
       }
     });
+    reflexChannelRef.current = channel;
 
     channel
       .on('broadcast', { event: 'reflex_click' }, ({ payload }: { payload: any }) => {
@@ -427,6 +442,7 @@ export default function TeacherPage() {
 
     return () => {
       supabase.removeChannel(channel);
+      reflexChannelRef.current = null;
     };
   }, [mounted]);
 
@@ -451,8 +467,7 @@ export default function TeacherPage() {
 
     const endTime = Date.now() + 120000;
     
-    const channel = supabase.channel('idea_voting_global');
-    channel.send({
+    votingChannelRef.current?.send({
       type: 'broadcast',
       event: 'start_voting',
       payload: {
@@ -469,8 +484,7 @@ export default function TeacherPage() {
         if (prev <= 1) {
           clearInterval(teacherVotingTimerRef.current);
           setTeacherVotingState('ended');
-          const finalChan = supabase.channel('idea_voting_global');
-          finalChan.send({
+          votingChannelRef.current?.send({
             type: 'broadcast',
             event: 'close_voting'
           });
@@ -485,8 +499,7 @@ export default function TeacherPage() {
     setTeacherVotingState('ended');
     if (teacherVotingTimerRef.current) clearInterval(teacherVotingTimerRef.current);
     
-    const channel = supabase.channel('idea_voting_global');
-    channel.send({
+    votingChannelRef.current?.send({
       type: 'broadcast',
       event: 'close_voting'
     });
@@ -522,8 +535,7 @@ export default function TeacherPage() {
     setBombHolderId(startHolderId);
 
     const firstQ = BOMB_QUESTIONS[Math.floor(Math.random() * BOMB_QUESTIONS.length)];
-    const channel = supabase.channel('bomb_challenge_global');
-    channel.send({
+    bombChannelRef.current?.send({
       type: 'broadcast',
       event: 'start_bomb',
       payload: {
@@ -537,8 +549,7 @@ export default function TeacherPage() {
     setBombStatus('idle');
     setBombHolderId(null);
     setBombTimeLeft(15);
-    const channel = supabase.channel('bomb_challenge_global');
-    channel.send({
+    bombChannelRef.current?.send({
       type: 'broadcast',
       event: 'start_bomb',
       payload: { holderId: null, question: null }
@@ -559,8 +570,7 @@ export default function TeacherPage() {
     setBattleQuestionIdx(0);
     setBattleSurvivors({});
 
-    const channel = supabase.channel('battle_royale_global');
-    channel.send({
+    battleChannelRef.current?.send({
       type: 'broadcast',
       event: 'start_battle'
     });
@@ -577,8 +587,7 @@ export default function TeacherPage() {
       endBattleRoyale();
       return;
     }
-    const channel = supabase.channel('battle_royale_global');
-    channel.send({
+    battleChannelRef.current?.send({
       type: 'broadcast',
       event: 'battle_question',
       payload: {
@@ -595,8 +604,7 @@ export default function TeacherPage() {
 
   const endBattleRoyale = () => {
     setBattleStep('ended');
-    const channel = supabase.channel('battle_royale_global');
-    channel.send({
+    battleChannelRef.current?.send({
       type: 'broadcast',
       event: 'end_battle'
     });
@@ -648,8 +656,7 @@ export default function TeacherPage() {
 
     setUndercoverAssignments(assignments);
 
-    const channel = supabase.channel(`undercover_group_${undercoverGroupSelected}`);
-    channel.send({
+    undercoverChannelRef.current?.send({
       type: 'broadcast',
       event: 'undercover_start',
       payload: {
@@ -661,8 +668,7 @@ export default function TeacherPage() {
 
   const moveToUndercoverVoting = () => {
     setUndercoverStep('voting');
-    const channel = supabase.channel(`undercover_group_${undercoverGroupSelected}`);
-    channel.send({
+    undercoverChannelRef.current?.send({
       type: 'broadcast',
       event: 'undercover_step_vote'
     });
@@ -670,8 +676,7 @@ export default function TeacherPage() {
 
   const endUndercoverGame = (winnerRole: 'normal' | 'undercover' | 'mrwhite') => {
     setUndercoverStep('ended');
-    const channel = supabase.channel(`undercover_group_${undercoverGroupSelected}`);
-    channel.send({
+    undercoverChannelRef.current?.send({
       type: 'broadcast',
       event: 'undercover_end',
       payload: { winner: winnerRole }
@@ -684,8 +689,7 @@ export default function TeacherPage() {
     setWordChainCurrentWord('thiết kế');
     setWordChainLastWinner(null);
 
-    const channel = supabase.channel('word_chain_global');
-    channel.send({
+    wordChainChannelRef.current?.send({
       type: 'broadcast',
       event: 'start_word_chain',
       payload: {
@@ -697,8 +701,7 @@ export default function TeacherPage() {
 
   const endWordChain = () => {
     setWordChainCurrentWord('');
-    const channel = supabase.channel('word_chain_global');
-    channel.send({
+    wordChainChannelRef.current?.send({
       type: 'broadcast',
       event: 'end_word_chain'
     });
@@ -707,16 +710,14 @@ export default function TeacherPage() {
   // Game 15: Reflex Rush control functions
   const startReflexRush = () => {
     setReflexClicks([]);
-    const channel = supabase.channel('reflex_rush_global');
-    channel.send({
+    reflexChannelRef.current?.send({
       type: 'broadcast',
       event: 'reflex_start_countdown'
     });
   };
 
   const endReflexRush = () => {
-    const channel = supabase.channel('reflex_rush_global');
-    channel.send({
+    reflexChannelRef.current?.send({
       type: 'broadcast',
       event: 'reflex_end'
     });
@@ -1320,8 +1321,7 @@ export default function TeacherPage() {
                     saveGameContent(4, { teamChallenge: e.target.value });
                     
                     // Broadcast immediately to online students
-                    const channel = supabase.channel('class_session_global');
-                    channel.send({
+                    classSessionChannelRef.current?.send({
                       type: 'broadcast',
                       event: 'update_topic',
                       payload: { week: 4, topic: e.target.value }
