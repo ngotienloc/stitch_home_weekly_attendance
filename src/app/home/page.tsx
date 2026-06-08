@@ -428,6 +428,7 @@ export default function HomePage() {
                 <div
                   key={game.id}
                   onClick={() => {
+                    if (checkedIn) return;
                     if (!gpsVerified) {
                       setPendingAction({ type: 'game', game });
                       setShowGpsModal(true);
@@ -435,7 +436,11 @@ export default function HomePage() {
                       setActiveGame(game);
                     }
                   }}
-                  className="animate-fade-in-up bg-white p-md rounded-xxl flex items-center gap-md border border-outline-variant/20 shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-all duration-200 active:scale-95 hover:shadow-md cursor-pointer"
+                  className={`animate-fade-in-up bg-white p-md rounded-xxl flex items-center gap-md border border-outline-variant/20 shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-all duration-200 ${
+                    checkedIn
+                      ? 'opacity-60 cursor-default'
+                      : 'active:scale-95 hover:shadow-md cursor-pointer'
+                  }`}
                   style={{ animationDelay: `${0.05 * idx}s` }}
                 >
                   <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-[28px] select-none ${game.colorClass}`}>
@@ -450,7 +455,11 @@ export default function HomePage() {
                     </div>
                     <p className="text-xs text-on-surface-variant mt-xs leading-tight font-medium">{game.description}</p>
                   </div>
-                  <span className="material-symbols-outlined text-primary text-[20px] opacity-60">play_circle</span>
+                  {checkedIn ? (
+                    <span className="material-symbols-outlined text-success text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>task_alt</span>
+                  ) : (
+                    <span className="material-symbols-outlined text-primary text-[20px] opacity-60">play_circle</span>
+                  )}
                 </div>
               ))}
               </div>
