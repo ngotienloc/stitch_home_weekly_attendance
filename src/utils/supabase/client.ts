@@ -29,21 +29,21 @@ export interface Game {
 }
 
 export const ALL_GAMES: Game[] = [
-  { id: 1,  name: 'Điểm danh nhanh nhất',   icon: '🏃', description: 'Người đầu tiên nhấn khi lớp học bắt đầu!',        points: 15, colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 1  },
-  { id: 2,  name: 'Câu hỏi bí mật',          icon: '🙋', description: 'Trả lời câu hỏi trực tiếp từ giảng viên.',        points: 10, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 2  },
+  { id: 1,  name: 'Đại chiến bom hẹn giờ',   icon: '💣', description: 'Trả lời nhanh câu hỏi trắc nghiệm để chuyền bom đi!', points: 15, colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 1  },
+  { id: 2,  name: 'Đấu trường sinh tử',      icon: '🦖', description: 'Sinh tồn Kahoot-style qua các câu hỏi trắc nghiệm!',points: 15, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 2  },
   { id: 3,  name: 'Điểm danh cùng GV',       icon: '🤝', description: 'Quét mã QR trực tiếp với giảng viên.',             points: 10, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 3  },
   { id: 4,  name: 'Thử thách nhóm',          icon: '👥', description: 'Hoàn thành nhiệm vụ cùng nhóm trong lớp.',         points: 20, colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 4  },
-  { id: 5,  name: 'Đoán từ khóa bài học',   icon: '🔍', description: 'Đoán từ khóa chính của bài học hôm nay.',          points: 15, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 5  },
+  { id: 5,  name: 'Kẻ giả mạo lớp học',      icon: '🕵️', description: 'Bình chọn tìm kẻ giả mạo trong nhóm thời gian thực.',points: 15, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 5  },
   { id: 6,  name: 'Giơ tay trả lời',         icon: '✋', description: 'Trả lời câu hỏi bất ngờ trong buổi học.',          points: 10, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 6  },
   { id: 7,  name: 'Khảo sát phản hồi',       icon: '📊', description: 'Điền khảo sát nhanh cuối buổi học.',               points: 5,  colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 7  },
   { id: 8,  name: 'Chuỗi điểm danh 🔥',     icon: '🔥', description: 'Duy trì chuỗi điểm danh liên tục không gián đoạn.',points: 10, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 8  },
-  { id: 9,  name: 'Mini Quiz',               icon: '🧠', description: 'Trả lời 3 câu trắc nghiệm về bài học.',            points: 15, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 9  },
+  { id: 9,  name: 'Cuộc đua nối từ',         icon: '🔗', description: 'Chọn phương án nối từ đúng nhanh nhất lớp.',        points: 15, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 9  },
   { id: 10, name: 'Thách đấu 1-1',           icon: '⚔️', description: 'Thi đấu trực tiếp với bạn ngồi cạnh.',             points: 25, colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 10 },
   { id: 11, name: 'Bình chọn ý tưởng',       icon: '💡', description: 'Bình chọn ý tưởng hay nhất từ các nhóm.',          points: 10, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 11 },
   { id: 12, name: 'Nộp bài nhanh',           icon: '📝', description: 'Nộp bài tập trước giờ học kết thúc.',              points: 10, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 12 },
   { id: 13, name: 'Kể chuyện 30 giây',       icon: '🎤', description: 'Thuyết trình ngắn về điều học được hôm nay.',       points: 15, colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 13 },
   { id: 14, name: 'Bonus tuần đặc biệt',     icon: '⭐', description: 'Điểm thưởng đặc biệt, chỉ mở vào tuần quan trọng!',points: 50, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 14 },
-  { id: 15, name: 'Ôn tập bài cũ',           icon: '📚', description: 'Trả lời câu hỏi về nội dung buổi học trước.',       points: 10, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 15 },
+  { id: 15, name: 'Đại chiến phản xạ',       icon: '⚡', description: 'Chờ màn hình chuyển màu xanh và nhấn nút phản xạ nhanh nhất lớp!', points: 15, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 15 },
   { id: 16, name: 'Chia sẻ học được gì',     icon: '💬', description: 'Chia sẻ điều mới học được với cả lớp hôm nay.',    points: 5,  colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 16 },
 ];
 

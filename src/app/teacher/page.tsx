@@ -51,6 +51,38 @@ export default function TeacherPage() {
   const teacherVotingTimerRef = useRef<any>(null);
   const votingScoresRef = useRef<Record<string, number>>({});
 
+  // Game 1 (Đại chiến Bom) states
+  const [bombActiveUsers, setBombActiveUsers] = useState<{ [id: string]: { name: string; lastSeen: number } }>({});
+  const [bombHolderId, setBombHolderId] = useState<string | null>(null);
+  const [bombTimeLeft, setBombTimeLeft] = useState<number>(15);
+  const [bombStatus, setBombStatus] = useState<'idle' | 'active' | 'exploded'>('idle');
+  const bombChannelRef = useRef<any>(null);
+
+  // Game 2 (Đấu trường sinh tử) states
+  const [battleStep, setBattleStep] = useState<'idle' | 'playing' | 'ended'>('idle');
+  const [battleQuestionIdx, setBattleQuestionIdx] = useState<number>(0);
+  const [battleSurvivors, setBattleSurvivors] = useState<{ [id: string]: { name: string; lives: number; lastSeen: number } }>({});
+  const battleChannelRef = useRef<any>(null);
+
+  // Game 5 (Kẻ giả mạo) states
+  const [undercoverStep, setUndercoverStep] = useState<'idle' | 'describing' | 'voting' | 'ended'>('idle');
+  const [undercoverGroupSelected, setUndercoverGroupSelected] = useState<string>('Nhóm 1');
+  const [undercoverKeywordPair, setUndercoverKeywordPair] = useState<{ normal: string; undercover: string }>({ normal: 'React', undercover: 'Vue' });
+  const [undercoverAssignments, setUndercoverAssignments] = useState<{ [id: string]: 'normal' | 'undercover' | 'mrwhite' }>({});
+  const [undercoverGroupMembers, setUndercoverGroupMembers] = useState<{ id: string; name: string }[]>([]);
+  const [undercoverDescriptions, setUndercoverDescriptions] = useState<{ [id: string]: { name: string; desc: string } }>({});
+  const [undercoverVotes, setUndercoverVotes] = useState<{ [id: string]: number }>({});
+  const undercoverChannelRef = useRef<any>(null);
+
+  // Game 9 (Cuộc đua nối từ) states
+  const [wordChainCurrentWord, setWordChainCurrentWord] = useState<string>('');
+  const [wordChainList, setWordChainList] = useState<string[]>([]);
+  const [wordChainLastWinner, setWordChainLastWinner] = useState<string | null>(null);
+  const wordChainChannelRef = useRef<any>(null);
+
+  // Game 15 (Đại chiến Phản xạ) states
+  const [reflexClicks, setReflexClicks] = useState<{ name: string; time: number }[]>([]);
+
   // Load settings
   const loadSettings = useCallback(async () => {
     if (isMockEnabled) {
@@ -178,6 +210,197 @@ export default function TeacherPage() {
     };
   }, [mounted, teacherVotingState, teacherVotingIdeas, teacherVotingTimeLeft]);
 
+  // Game 1 (Đại chiến Bom) teacher realtime effect
+  useEffect(() => {
+    if (!mounted) return;
+    const channel = supabase.channel('bomb_challenge_global', {
+      config: {
+        broadcast: { self: true }
+      }
+    });
+    bombChannelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'bomb_ping' }, ({ payload }: { payload: any }) => {
+        const { userId, name } = payload;
+        setBombActiveUsers(prev => ({
+          ...prev,
+          [userId]: { name, lastSeen: Date.now() }
+        }));
+      })
+      .on('broadcast', { event: 'bomb_exploded' }, ({ payload }: { payload: any }) => {
+        const { holderId } = payload;
+        setBombHolderId(holderId);
+        setBombStatus('exploded');
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      bombChannelRef.current = null;
+    };
+  }, [mounted]);
+
+  // Game 2 (Đấu trường sinh tử) teacher realtime effect
+  useEffect(() => {
+    if (!mounted) return;
+    const channel = supabase.channel('battle_royale_global', {
+      config: {
+        broadcast: { self: true }
+      }
+    });
+    battleChannelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'battle_ping' }, ({ payload }: { payload: any }) => {
+        const { userId, name, lives } = payload;
+        setBattleSurvivors(prev => ({
+          ...prev,
+          [userId]: { name, lives, lastSeen: Date.now() }
+        }));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      battleChannelRef.current = null;
+    };
+  }, [mounted]);
+
+  // Game 5 (Kẻ giả mạo) teacher realtime effect
+  useEffect(() => {
+    if (!mounted || !undercoverGroupSelected) return;
+    const channel = supabase.channel(`undercover_group_${undercoverGroupSelected}`, {
+      config: {
+        broadcast: { self: true }
+      }
+    });
+    undercoverChannelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'undercover_describe' }, ({ payload }: { payload: any }) => {
+        const { userId, name, desc } = payload;
+        setUndercoverDescriptions(prev => ({
+          ...prev,
+          [userId]: { name, desc }
+        }));
+      })
+      .on('broadcast', { event: 'undercover_vote' }, ({ payload }: { payload: any }) => {
+        const { targetId } = payload;
+        setUndercoverVotes(prev => ({
+          ...prev,
+          [targetId]: (prev[targetId] || 0) + 1
+        }));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      undercoverChannelRef.current = null;
+    };
+  }, [mounted, undercoverGroupSelected]);
+
+  // Game 9 (Cuộc đua nối từ) teacher realtime effect
+  useEffect(() => {
+    if (!mounted) return;
+    const channel = supabase.channel('word_chain_global', {
+      config: {
+        broadcast: { self: true }
+      }
+    });
+    wordChainChannelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'word_chain_submit' }, ({ payload }: { payload: any }) => {
+        const { word, studentName } = payload;
+        setWordChainList(prev => {
+          if (prev.includes(word)) return prev;
+          const nextList = [...prev, word];
+          setWordChainCurrentWord(word);
+          setWordChainLastWinner(studentName);
+
+          const words = word.trim().split(/\s+/);
+          const lastWord = words[words.length - 1];
+          
+          const itDictionary: Record<string, string[]> = {
+            'mạng': ['mạng máy tính', 'mạng nội bộ', 'mạng không dây', 'mạng diện rộng'],
+            'mềm': ['mềm hệ thống', 'mềm ứng dụng', 'mềm độc hại', 'mềm tự do'],
+            'cứng': ['cứng thiết bị', 'cứng vi mạch', 'cứng đĩa', 'cứng vật lý'],
+            'hệ': ['hệ điều hành', 'hệ quản trị', 'hệ thống mạng', 'hệ phân tán'],
+            'thống': ['thống kê', 'thống nhất', 'thống dữ liệu', 'thống phân tích'],
+            'dữ': ['dữ liệu', 'dữ trữ', 'dữ báo', 'dữ kiện'],
+            'liệu': ['liệu cấu trúc', 'liệu quan hệ', 'liệu đám mây', 'liệu mã hóa'],
+            'lập': ['lập trình', 'lập cấu trúc', 'lập thuật toán', 'lập sơ đồ'],
+            'trình': ['trình duyệt', 'trình biên dịch', 'trình thông dịch', 'trình mã nguồn'],
+            'duyệt': ['duyệt mạng', 'duyệt web', 'duyệt thư mục', 'duyệt dữ liệu'],
+            'tin': ['tin học', 'tin an ninh', 'tin truyền tải', 'tin cơ sở'],
+            'bảo': ['bảo mật', 'bảo trì', 'bảo vệ', 'bảo lưu'],
+            'mật': ['mật mã', 'mật khẩu', 'mật khóa', 'mật thư']
+          };
+
+          const candidates = itDictionary[lastWord.toLowerCase()] || [
+            `${lastWord} dữ liệu`,
+            `${lastWord} hệ thống`,
+            `${lastWord} lập trình`,
+            `${lastWord} phần cứng`
+          ];
+
+          const nextOptions = [...candidates].sort(() => Math.random() - 0.5);
+
+          channel.send({
+            type: 'broadcast',
+            event: 'word_chain_next',
+            payload: {
+              word,
+              options: nextOptions,
+              winnerName: studentName,
+              chainLength: nextList.length
+            }
+          });
+
+          return nextList;
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      wordChainChannelRef.current = null;
+    };
+  }, [mounted]);
+
+  // Game 15 (Đại chiến Phản xạ) teacher realtime effect
+  useEffect(() => {
+    if (!mounted) return;
+    const channel = supabase.channel('reflex_rush_global', {
+      config: {
+        broadcast: { self: true }
+      }
+    });
+
+    channel
+      .on('broadcast', { event: 'reflex_click' }, ({ payload }: { payload: any }) => {
+        const { name, time } = payload;
+        setReflexClicks(prev => {
+          const filtered = prev.filter(c => c.name !== name);
+          const nextClicks = [...filtered, { name, time }].sort((a, b) => a.time - b.time);
+          
+          channel.send({
+            type: 'broadcast',
+            event: 'reflex_leaderboard_update',
+            payload: { leaderboard: nextClicks }
+          });
+          
+          return nextClicks;
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [mounted]);
+
   // Clean up timer on unmount
   useEffect(() => {
     return () => {
@@ -237,6 +460,228 @@ export default function TeacherPage() {
     channel.send({
       type: 'broadcast',
       event: 'close_voting'
+    });
+  };
+
+  // Game 1: Bomb Challenge control functions
+  const startBombGame = (selectedUserToStartId?: string) => {
+    setBombStatus('active');
+    setBombTimeLeft(15);
+    
+    let startHolderId = selectedUserToStartId;
+    if (!startHolderId) {
+      const activeIds = Object.keys(bombActiveUsers);
+      if (activeIds.length > 0) {
+        startHolderId = activeIds[Math.floor(Math.random() * activeIds.length)];
+      }
+    }
+
+    if (!startHolderId) {
+      alert("Không có sinh viên online để nhận bom!");
+      setBombStatus('idle');
+      return;
+    }
+
+    setBombHolderId(startHolderId);
+
+    const firstQ = BOMB_QUESTIONS[Math.floor(Math.random() * BOMB_QUESTIONS.length)];
+    const channel = supabase.channel('bomb_challenge_global');
+    channel.send({
+      type: 'broadcast',
+      event: 'start_bomb',
+      payload: {
+        holderId: startHolderId,
+        question: firstQ
+      }
+    });
+  };
+
+  const resetBombGame = () => {
+    setBombStatus('idle');
+    setBombHolderId(null);
+    setBombTimeLeft(15);
+    const channel = supabase.channel('bomb_challenge_global');
+    channel.send({
+      type: 'broadcast',
+      event: 'start_bomb',
+      payload: { holderId: null, question: null }
+    });
+  };
+
+  // Game 2: Battle Royale control functions
+  const BATTLE_QUESTIONS = [
+    { q: "HTML viết tắt của cụm từ nào?", opts: ["HyperText Markup Language", "Hyperlink Text Mark Language", "Home Tool Markup Language", "Hyperlink Tool Markup Language"], ans: 0 },
+    { q: "Ngôn ngữ nào định dạng phong cách giao diện?", opts: ["HTML", "SQL", "CSS", "XML"], ans: 2 },
+    { q: "Phương thức HTTP nào dùng để gửi dữ liệu tạo mới?", opts: ["GET", "POST", "PUT", "DELETE"], ans: 1 },
+    { q: "Ai là người sáng lập ra thư viện React?", opts: ["Google", "Facebook", "Microsoft", "Twitter"], ans: 1 },
+    { q: "Thuộc tính CSS nào điều chỉnh màu nền?", opts: ["color", "background-color", "bgcolor", "background-image"], ans: 1 }
+  ];
+
+  const startBattleRoyale = () => {
+    setBattleStep('playing');
+    setBattleQuestionIdx(0);
+    setBattleSurvivors({});
+
+    const channel = supabase.channel('battle_royale_global');
+    channel.send({
+      type: 'broadcast',
+      event: 'start_battle'
+    });
+
+    setTimeout(() => {
+      sendBattleQuestion(0);
+    }, 1500);
+  };
+
+  const sendBattleQuestion = (idx: number) => {
+    setBattleQuestionIdx(idx);
+    const q = BATTLE_QUESTIONS[idx];
+    if (!q) {
+      endBattleRoyale();
+      return;
+    }
+    const channel = supabase.channel('battle_royale_global');
+    channel.send({
+      type: 'broadcast',
+      event: 'battle_question',
+      payload: {
+        question: {
+          q: q.q,
+          opts: q.opts,
+          ans: q.ans,
+          idx: idx,
+          total: BATTLE_QUESTIONS.length
+        }
+      }
+    });
+  };
+
+  const endBattleRoyale = () => {
+    setBattleStep('ended');
+    const channel = supabase.channel('battle_royale_global');
+    channel.send({
+      type: 'broadcast',
+      event: 'end_battle'
+    });
+  };
+
+  // Game 5: Undercover control functions
+  const fetchGroupMembers = async (groupName: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('student_id, student_name')
+        .eq('week_number', settings.currentWeek)
+        .like('student_input', `${groupName}%`);
+      if (error) throw error;
+      
+      if (data) {
+        const uniqueMembers = data.filter((v, i, a) => a.findIndex(t => t.student_id === v.student_id) === i);
+        setUndercoverGroupMembers(uniqueMembers.map(m => ({ id: m.student_id, name: m.student_name })));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const startUndercoverGame = () => {
+    if (undercoverGroupMembers.length < 3) {
+      alert("Cần tối thiểu 3 thành viên trong nhóm online để chơi!");
+      return;
+    }
+
+    setUndercoverStep('describing');
+    setUndercoverDescriptions({});
+    setUndercoverVotes({});
+
+    const memberIds = undercoverGroupMembers.map(m => m.id).sort(() => Math.random() - 0.5);
+    const assignments: { [id: string]: 'normal' | 'undercover' | 'mrwhite' } = {};
+    
+    assignments[memberIds[0]] = 'undercover';
+    if (memberIds.length >= 4) {
+      assignments[memberIds[1]] = 'mrwhite';
+      for (let i = 2; i < memberIds.length; i++) {
+        assignments[memberIds[i]] = 'normal';
+      }
+    } else {
+      for (let i = 1; i < memberIds.length; i++) {
+        assignments[memberIds[i]] = 'normal';
+      }
+    }
+
+    setUndercoverAssignments(assignments);
+
+    const channel = supabase.channel(`undercover_group_${undercoverGroupSelected}`);
+    channel.send({
+      type: 'broadcast',
+      event: 'undercover_start',
+      payload: {
+        keywordPair: undercoverKeywordPair,
+        assignments
+      }
+    });
+  };
+
+  const moveToUndercoverVoting = () => {
+    setUndercoverStep('voting');
+    const channel = supabase.channel(`undercover_group_${undercoverGroupSelected}`);
+    channel.send({
+      type: 'broadcast',
+      event: 'undercover_step_vote'
+    });
+  };
+
+  const endUndercoverGame = (winnerRole: 'normal' | 'undercover' | 'mrwhite') => {
+    setUndercoverStep('ended');
+    const channel = supabase.channel(`undercover_group_${undercoverGroupSelected}`);
+    channel.send({
+      type: 'broadcast',
+      event: 'undercover_end',
+      payload: { winner: winnerRole }
+    });
+  };
+
+  // Game 9: Word Chain control functions
+  const startWordChain = () => {
+    setWordChainList(['phần mềm']);
+    setWordChainCurrentWord('phần mềm');
+    setWordChainLastWinner(null);
+
+    const channel = supabase.channel('word_chain_global');
+    channel.send({
+      type: 'broadcast',
+      event: 'start_word_chain',
+      payload: {
+        word: 'phần mềm',
+        options: ['mềm hệ thống', 'mềm ứng dụng', 'mềm độc hại', 'mềm tự do']
+      }
+    });
+  };
+
+  const endWordChain = () => {
+    setWordChainCurrentWord('');
+    const channel = supabase.channel('word_chain_global');
+    channel.send({
+      type: 'broadcast',
+      event: 'end_word_chain'
+    });
+  };
+
+  // Game 15: Reflex Rush control functions
+  const startReflexRush = () => {
+    setReflexClicks([]);
+    const channel = supabase.channel('reflex_rush_global');
+    channel.send({
+      type: 'broadcast',
+      event: 'reflex_start_countdown'
+    });
+  };
+
+  const endReflexRush = () => {
+    const channel = supabase.channel('reflex_rush_global');
+    channel.send({
+      type: 'broadcast',
+      event: 'reflex_end'
     });
   };
 
@@ -687,28 +1132,144 @@ export default function TeacherPage() {
         </section>
 
         {/* Game Customisation Card */}
-        {mounted && (settings.currentWeek === 2 || settings.currentWeek === 4 || settings.currentWeek === 9 || settings.currentWeek === 6 || settings.currentWeek === 11) && (
+        {mounted && [1, 2, 4, 5, 6, 9, 11, 15].includes(settings.currentWeek) && (
           <section className="bg-white p-lg rounded-xxl shadow-sm border border-outline-variant/20 animate-fade-in-up mt-sm">
             <h4 className="text-sm font-bold text-on-surface mb-sm flex items-center gap-1">
               <span className="material-symbols-outlined text-[18px] text-primary">
-                {settings.currentWeek === 6 || settings.currentWeek === 11 ? 'casino' : 'edit_note'}
+                {[1, 2, 5, 9, 11, 15].includes(settings.currentWeek) ? 'sports_esports' : 'edit_note'}
               </span>
-              {settings.currentWeek === 6 ? 'Điều khiển Thử thách: Giơ tay trả lời' : settings.currentWeek === 11 ? 'Điều khiển: Bình chọn ý tưởng' : `Tùy biến câu hỏi tuần ${settings.currentWeek}`}
+              {[1, 2, 5, 9, 11, 15].includes(settings.currentWeek)
+                ? `Bảng điều khiển: Trò chơi Tuần ${settings.currentWeek}`
+                : settings.currentWeek === 6
+                  ? 'Điều khiển Thử thách: Giơ tay trả lời'
+                  : `Tùy biến câu hỏi tuần ${settings.currentWeek}`}
             </h4>
             
+            {settings.currentWeek === 1 && (
+              <div className="space-y-md">
+                <div className="p-md bg-secondary-container/20 border border-secondary/20 rounded-xl space-y-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-on-surface-variant">Trạng thái bom:</span>
+                    <span className={`text-xs font-black uppercase px-2 py-0.5 rounded-full ${
+                      bombStatus === 'active' ? 'bg-error/10 text-error' : bombStatus === 'exploded' ? 'bg-zinc-800 text-white' : 'bg-surface-container-high text-on-surface-variant'
+                    }`}>
+                      {bombStatus === 'active' ? '💥 ĐANG HOẠT ĐỘNG' : bombStatus === 'exploded' ? '💀 ĐÃ NỔ!' : '⏱️ CHƯA KÍCH HOẠT'}
+                    </span>
+                  </div>
+
+                  {bombStatus === 'active' && bombHolderId && (
+                    <div className="text-center py-sm bg-surface-container-low rounded-lg">
+                      <p className="text-[10px] text-on-surface-variant font-bold">Người đang giữ bom:</p>
+                      <p className="text-base font-extrabold text-error">
+                        {bombActiveUsers[bombHolderId]?.name || 'Không rõ'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-sm">
+                  <button
+                    disabled={bombStatus === 'active'}
+                    onClick={() => startBombGame()}
+                    className="flex-1 py-sm bg-primary text-on-primary font-bold text-xs rounded-xl shadow-md hover:bg-primary/95 disabled:opacity-40 transition-all cursor-pointer"
+                  >
+                    🚀 Bắt đầu Game (Phát Bom ngẫu nhiên)
+                  </button>
+                  <button
+                    onClick={resetBombGame}
+                    className="py-sm px-md bg-surface-container border border-outline-variant/30 text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-all cursor-pointer"
+                  >
+                    Đặt lại 🔄
+                  </button>
+                </div>
+
+                <div className="space-y-sm">
+                  <p className="text-xs font-bold text-on-surface-variant uppercase">Danh sách Online hoạt động (nhận bom):</p>
+                  <div className="max-h-40 overflow-y-auto space-y-xs pr-xs">
+                    {Object.entries(bombActiveUsers).length === 0 ? (
+                      <p className="text-xs text-on-surface-variant italic text-center py-sm bg-surface-container-low rounded-xl">Đang đợi sinh viên ping online...</p>
+                    ) : (
+                      Object.entries(bombActiveUsers).map(([uid, u]) => (
+                        <div key={uid} className="flex justify-between items-center p-sm bg-surface-container border border-outline-variant/20 rounded-xl">
+                          <span className="text-xs font-bold text-on-surface">{u.name}</span>
+                          <button
+                            disabled={bombStatus === 'active'}
+                            onClick={() => startBombGame(uid)}
+                            className="px-sm py-1 text-[10px] font-bold text-primary border border-primary/30 rounded-lg hover:bg-primary/10 transition-all cursor-pointer"
+                          >
+                            Phát bom cho bạn này
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {settings.currentWeek === 2 && (
-              <div className="space-y-sm">
-                <label className="text-xs font-bold text-on-surface-variant">Nhập câu hỏi bí mật của giảng viên:</label>
-                <input
-                  type="text"
-                  value={customSecretQuestion}
-                  onChange={(e) => {
-                    setCustomSecretQuestion(e.target.value);
-                    saveGameContent(2, { secretQuestion: e.target.value });
-                  }}
-                  className="w-full px-md py-sm rounded-xl border border-outline-variant/40 text-sm focus:outline-none focus:border-primary bg-surface-container-low"
-                  placeholder="Ví dụ: Quy trình thiết kế kỹ thuật gồm mấy bước chính?"
-                />
+              <div className="space-y-md">
+                <div className="p-md bg-secondary-container/20 border border-secondary/20 rounded-xl space-y-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-on-surface-variant">Trạng thái:</span>
+                    <span className={`text-xs font-black uppercase px-2 py-0.5 rounded-full ${
+                      battleStep === 'playing' ? 'bg-primary/10 text-primary animate-pulse' : 'bg-surface-container-high text-on-surface-variant'
+                    }`}>
+                      {battleStep === 'playing' ? '🎮 ĐANG THI ĐẤU' : battleStep === 'ended' ? '🏁 ĐÃ KẾT THÚC' : '⏱️ ĐANG CHỜ'}
+                    </span>
+                  </div>
+
+                  {battleStep === 'playing' && (
+                    <div className="text-center py-sm bg-surface-container-low rounded-lg">
+                      <p className="text-[10px] text-on-surface-variant font-bold">Câu hỏi hiện tại:</p>
+                      <p className="text-sm font-extrabold text-primary">
+                        Câu {battleQuestionIdx + 1}: {BATTLE_QUESTIONS[battleQuestionIdx]?.q}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-sm flex-wrap">
+                  {battleStep !== 'playing' ? (
+                    <button
+                      onClick={startBattleRoyale}
+                      className="flex-1 py-sm bg-primary text-on-primary font-bold text-xs rounded-xl shadow-md hover:bg-primary/95 transition-all cursor-pointer"
+                    >
+                      🚀 Bắt đầu thi đấu
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => sendBattleQuestion(battleQuestionIdx + 1)}
+                        className="flex-1 py-sm bg-success text-on-success font-bold text-xs rounded-xl shadow-md hover:bg-success/95 transition-all cursor-pointer"
+                      >
+                        Câu tiếp theo ➡️
+                      </button>
+                      <button
+                        onClick={endBattleRoyale}
+                        className="py-sm px-md bg-error text-on-error font-bold text-xs rounded-xl hover:bg-error/90 transition-all cursor-pointer"
+                      >
+                        Kết thúc Trận 🏁
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <div className="space-y-sm">
+                  <p className="text-xs font-bold text-on-surface-variant uppercase">Trạng thái Tim sinh tồn thời gian thực:</p>
+                  <div className="grid grid-cols-2 gap-sm max-h-40 overflow-y-auto pr-xs">
+                    {Object.entries(battleSurvivors).length === 0 ? (
+                      <p className="col-span-2 text-xs text-on-surface-variant italic text-center py-sm bg-surface-container-low rounded-xl">Đang đợi sinh viên kết nối...</p>
+                    ) : (
+                      Object.entries(battleSurvivors).map(([uid, u]) => (
+                        <div key={uid} className="flex justify-between items-center p-sm bg-surface-container border border-outline-variant/20 rounded-xl">
+                          <span className="text-xs font-bold text-on-surface truncate max-w-[120px]">{u.name}</span>
+                          <span className="text-xs">{Array(Math.max(0, u.lives)).fill('❤️').join('') || '💀'}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -736,10 +1297,128 @@ export default function TeacherPage() {
               </div>
             )}
 
+            {settings.currentWeek === 5 && (
+              <div className="space-y-md">
+                <div className="grid grid-cols-2 gap-sm">
+                  <div>
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase">Nhóm theo dõi:</label>
+                    <select
+                      value={undercoverGroupSelected}
+                      onChange={e => {
+                        setUndercoverGroupSelected(e.target.value);
+                        fetchGroupMembers(e.target.value);
+                      }}
+                      className="w-full p-sm text-xs rounded-xl border border-outline-variant/40 bg-surface-container-low focus:border-primary outline-none"
+                    >
+                      {['Nhóm 1', 'Nhóm 2', 'Nhóm 3', 'Nhóm 4', 'Nhóm 5'].map(g => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase">Từ khóa (Dân thường / Kẻ giả mạo):</label>
+                    <select
+                      value={`${undercoverKeywordPair.normal}-${undercoverKeywordPair.undercover}`}
+                      onChange={e => {
+                        const [n, u] = e.target.value.split('-');
+                        setUndercoverKeywordPair({ normal: n, undercover: u });
+                      }}
+                      className="w-full p-sm text-xs rounded-xl border border-outline-variant/40 bg-surface-container-low focus:border-primary outline-none"
+                    >
+                      <option value="React-Vue">React / Vue</option>
+                      <option value="Python-Java">Python / Java</option>
+                      <option value="SQL-NoSQL">SQL / NoSQL</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex gap-sm">
+                  <button
+                    onClick={() => fetchGroupMembers(undercoverGroupSelected)}
+                    className="py-sm px-sm bg-surface-container border border-outline-variant/30 text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-all cursor-pointer"
+                  >
+                    Kiểm tra Thành viên 🔄
+                  </button>
+                  {undercoverStep === 'idle' ? (
+                    <button
+                      onClick={startUndercoverGame}
+                      className="flex-1 py-sm bg-primary text-on-primary font-bold text-xs rounded-xl shadow-md hover:bg-primary/95 transition-all cursor-pointer"
+                    >
+                      🚀 Phát từ khóa bí mật
+                    </button>
+                  ) : undercoverStep === 'describing' ? (
+                    <button
+                      onClick={moveToUndercoverVoting}
+                      className="flex-1 py-sm bg-success text-on-success font-bold text-xs rounded-xl shadow-md hover:bg-success/95 transition-all cursor-pointer"
+                    >
+                      Bình chọn giả mạo 🗳️
+                    </button>
+                  ) : undercoverStep === 'voting' ? (
+                    <div className="flex-1 flex gap-xs">
+                      <button
+                        onClick={() => endUndercoverGame('normal')}
+                        className="flex-1 py-sm bg-emerald-600 text-white font-bold text-[10px] rounded-xl hover:bg-emerald-700 transition-all cursor-pointer"
+                      >
+                        Phe Dân Thắng 🙋‍♂️
+                      </button>
+                      <button
+                        onClick={() => endUndercoverGame('undercover')}
+                        className="flex-1 py-sm bg-amber-600 text-white font-bold text-[10px] rounded-xl hover:bg-amber-700 transition-all cursor-pointer"
+                      >
+                        Giả Mạo Thắng 🕵️
+                      </button>
+                      <button
+                        onClick={() => endUndercoverGame('mrwhite')}
+                        className="flex-1 py-sm bg-neutral-600 text-white font-bold text-[10px] rounded-xl hover:bg-neutral-700 transition-all cursor-pointer"
+                      >
+                        Mr.White Thắng 👻
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setUndercoverStep('idle')}
+                      className="flex-1 py-sm bg-surface-container-high text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container transition-all cursor-pointer"
+                    >
+                      Lượt chơi mới 🔄
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-sm bg-surface-container-low p-sm rounded-xl border border-outline-variant/20">
+                  <div className="flex justify-between items-center text-xs font-bold text-on-surface-variant">
+                    <span>Thành viên trong nhóm ({undercoverGroupMembers.length}):</span>
+                    <span>Bước: <b className="text-primary uppercase">{undercoverStep}</b></span>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-xs pr-xs">
+                    {undercoverGroupMembers.map(m => {
+                      const desc = undercoverDescriptions[m.id]?.desc;
+                      const role = undercoverAssignments[m.id];
+                      const votes = undercoverVotes[m.id] || 0;
+                      return (
+                        <div key={m.id} className="flex justify-between items-center p-sm bg-white border border-outline-variant/10 rounded-lg">
+                          <div>
+                            <p className="text-xs font-bold text-on-surface">
+                              {m.name} <span className="text-[10px] text-primary/70">({role === 'undercover' ? 'Giả mạo' : role === 'mrwhite' ? 'White' : 'Dân'})</span>
+                            </p>
+                            <p className="text-xs text-primary font-semibold">Mô tả: "{desc || 'Chưa gửi'}"</p>
+                          </div>
+                          {votes > 0 && (
+                            <span className="text-[10px] font-black text-error bg-error/10 px-2 py-0.5 rounded-full">
+                              🗳️ {votes} Vote
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {settings.currentWeek === 6 && (
               <div className="space-y-md">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-lg items-center">
-                  {/* Left side: top list */}
                   <div className="space-y-sm">
                     <h5 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Top 5 sinh viên giơ tay nhanh nhất:</h5>
                     {(() => {
@@ -771,7 +1450,6 @@ export default function TeacherPage() {
                     })()}
                   </div>
 
-                  {/* Right side: Lucky Wheel */}
                   <div className="flex flex-col items-center justify-center py-md space-y-md border-t md:border-t-0 md:border-l border-outline-variant/20">
                     {(() => {
                       const raisers = getHandRaisers();
@@ -783,10 +1461,8 @@ export default function TeacherPage() {
                       return (
                         <>
                           <div className="relative">
-                            {/* Pointer arrow */}
                             <div className="absolute top-[-12px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[18px] border-t-error z-20 filter drop-shadow-md" />
                             
-                            {/* Wheel */}
                             <div
                               className="w-44 h-44 rounded-full border-4 border-on-surface shadow-2xl relative overflow-hidden flex items-center justify-center"
                               style={{
@@ -795,7 +1471,6 @@ export default function TeacherPage() {
                                 transition: wheelSpinning ? 'transform 4000ms cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none'
                               }}
                             >
-                              {/* Text labels */}
                               {raisers.map((r, idx) => {
                                 const angle = idx * (360 / raisers.length) + (360 / raisers.length) / 2;
                                 return (
@@ -815,13 +1490,11 @@ export default function TeacherPage() {
                               })}
                             </div>
 
-                            {/* Center PIN */}
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white border-4 border-on-surface flex items-center justify-center shadow-md z-20">
                               <div className="w-2 h-2 rounded-full bg-error animate-pulse" />
                             </div>
                           </div>
 
-                          {/* Action buttons */}
                           <div className="w-full max-w-[200px] text-center">
                             <button
                               disabled={wheelSpinning || raisers.length === 0}
@@ -838,7 +1511,6 @@ export default function TeacherPage() {
                   </div>
                 </div>
 
-                {/* Winner announcement and award button */}
                 {selectedWinner && (
                   <div className="mt-md p-md bg-green-500/10 border border-green-500/30 rounded-2xl text-center space-y-sm animate-pop-in w-full">
                     <p className="text-xs text-green-700 font-bold uppercase tracking-wider">🎉 Chúc mừng người được chọn! 🎉</p>
@@ -861,68 +1533,48 @@ export default function TeacherPage() {
               </div>
             )}
 
-            {settings.currentWeek === 9 && customQuizQuestions.length > 0 && (
+            {settings.currentWeek === 9 && (
               <div className="space-y-md">
-                <p className="text-[11px] text-on-surface-variant font-medium">Chỉnh sửa 3 câu hỏi trắc nghiệm của Mini Quiz:</p>
-                {customQuizQuestions.map((qItem, qIdx) => (
-                  <div key={qIdx} className="p-sm bg-surface-container-low rounded-xl border border-outline-variant/15 space-y-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-primary">Câu hỏi {qIdx + 1}</span>
-                    </div>
-                    <input
-                      type="text"
-                      value={qItem.q}
-                      onChange={(e) => {
-                        const next = [...customQuizQuestions];
-                        next[qIdx] = { ...next[qIdx], q: e.target.value };
-                        setCustomQuizQuestions(next);
-                        saveGameContent(9, { quizQuestions: next });
-                      }}
-                      className="w-full px-md py-sm rounded-xl border border-outline-variant/40 text-xs focus:outline-none focus:border-primary bg-white"
-                      placeholder="Nhập câu hỏi..."
-                    />
-                    <div className="grid grid-cols-2 gap-sm">
-                      {qItem.opts.map((optVal: string, oIdx: number) => (
-                        <div key={oIdx} className="space-y-xs">
-                          <label className="text-[10px] text-on-surface-variant font-bold">Đáp án {String.fromCharCode(65 + oIdx)}:</label>
-                          <input
-                            type="text"
-                            value={optVal}
-                            onChange={(e) => {
-                              const next = [...customQuizQuestions];
-                              const nextOpts = [...next[qIdx].opts];
-                              nextOpts[oIdx] = e.target.value;
-                              next[qIdx] = { ...next[qIdx], opts: nextOpts };
-                              setCustomQuizQuestions(next);
-                              saveGameContent(9, { quizQuestions: next });
-                            }}
-                            className="w-full px-sm py-xs rounded-lg border border-outline-variant/40 text-[11px] focus:outline-none focus:border-primary bg-white"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-sm pt-xs border-t border-outline-variant/10">
-                      <span className="text-[10px] font-bold text-on-surface-variant">Chọn đáp án đúng:</span>
-                      <select
-                        value={qItem.ans}
-                        onChange={(e) => {
-                          const next = [...customQuizQuestions];
-                          next[qIdx] = { ...next[qIdx], ans: parseInt(e.target.value) };
-                          setCustomQuizQuestions(next);
-                          saveGameContent(9, { quizQuestions: next });
-                        }}
-                        className="text-[11px] border border-outline-variant/40 rounded-lg px-xs py-0.5 bg-white"
-                      >
-                        <option value={0}>Đáp án A</option>
-                        <option value={1}>Đáp án B</option>
-                        <option value={2}>Đáp án C</option>
-                        <option value={3}>Đáp án D</option>
-                      </select>
-                    </div>
+                <div className="p-md bg-secondary-container/20 border border-secondary/20 rounded-xl space-y-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-on-surface-variant">Từ khóa hiện tại:</span>
+                    <span className="text-xs font-extrabold text-primary">{wordChainCurrentWord || 'Chưa bắt đầu'}</span>
                   </div>
-                ))}
+
+                  <div className="flex justify-between items-center text-xs font-bold text-on-surface-variant">
+                    <span>Độ dài chuỗi:</span>
+                    <span className="text-primary font-black">{wordChainList.length} từ</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-sm">
+                  <button
+                    onClick={startWordChain}
+                    className="flex-1 py-sm bg-primary text-on-primary font-bold text-xs rounded-xl shadow-md hover:bg-primary/95 transition-all cursor-pointer"
+                  >
+                    🚀 Bắt đầu Game (Từ: "phần mềm")
+                  </button>
+                  <button
+                    onClick={endWordChain}
+                    className="py-sm px-md bg-error text-on-error font-bold text-xs rounded-xl hover:bg-error/90 transition-all cursor-pointer"
+                  >
+                    Đóng Game 🏁
+                  </button>
+                </div>
+
+                <div className="space-y-sm bg-surface-container-low p-sm rounded-xl border border-outline-variant/20">
+                  <p className="text-xs font-bold text-on-surface-variant uppercase">Chuỗi nối từ hiện tại:</p>
+                  <div className="flex flex-wrap gap-xs max-h-32 overflow-y-auto pr-xs py-xs">
+                    {wordChainList.map((w, idx) => (
+                      <div key={idx} className="px-xs py-1 text-xs font-extrabold bg-white rounded-lg border border-outline-variant/30 text-on-surface">
+                        {w}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
+
             {settings.currentWeek === 11 && (
               <div className="space-y-md">
                 <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">Quản lý Bình chọn Ý tưởng (Tuần 11)</label>
@@ -1052,6 +1704,48 @@ export default function TeacherPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {settings.currentWeek === 15 && (
+              <div className="space-y-md">
+                <div className="p-md bg-secondary-container/20 border border-secondary/20 rounded-xl space-y-sm text-center">
+                  <p className="text-xs text-on-surface-variant font-bold uppercase">Báo cáo click phản xạ nhanh</p>
+                  <p className="text-2xl font-black text-primary">{reflexClicks.length} sinh viên đã click</p>
+                </div>
+
+                <div className="flex gap-sm">
+                  <button
+                    onClick={startReflexRush}
+                    className="flex-1 py-sm bg-primary text-on-primary font-bold text-xs rounded-xl shadow-md hover:bg-primary/95 transition-all cursor-pointer"
+                  >
+                    🚀 Phát lệnh đếm ngược đồng loạt
+                  </button>
+                  <button
+                    onClick={endReflexRush}
+                    className="py-sm px-md bg-error text-on-error font-bold text-xs rounded-xl hover:bg-error/90 transition-all cursor-pointer"
+                  >
+                    Kết thúc 🏁
+                  </button>
+                </div>
+
+                <div className="space-y-sm">
+                  <p className="text-xs font-bold text-on-surface-variant uppercase">Bảng xếp hạng tốc độ phản xạ:</p>
+                  <div className="max-h-40 overflow-y-auto space-y-xs pr-xs">
+                    {reflexClicks.length === 0 ? (
+                      <p className="text-xs text-on-surface-variant italic text-center py-sm bg-surface-container-low rounded-xl">Đang đợi sinh viên click...</p>
+                    ) : (
+                      reflexClicks.map((c, idx) => (
+                        <div key={idx} className="flex justify-between items-center p-sm bg-surface-container border border-outline-variant/20 rounded-xl">
+                          <span className="text-xs font-bold text-on-surface">
+                            <span className="text-primary font-extrabold mr-1">#{idx + 1}</span> {c.name}
+                          </span>
+                          <span className="text-xs font-extrabold text-secondary">{c.time} ms</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </section>

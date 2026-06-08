@@ -77,6 +77,14 @@ const DUEL_QUESTIONS = [
   }
 ];
 
+const BOMB_QUESTIONS = [
+  { q: "Từ khóa 'CSS' viết tắt của cụm từ nào?", opts: ["Cascading Style Sheets", "Creative Style System", "Computer Style Sheets", "Colorful Style System"], ans: 0 },
+  { q: "Thẻ HTML nào dùng để chèn hình ảnh?", opts: ["<picture>", "<img>", "<image>", "<src>"], ans: 1 },
+  { q: "Ngôn ngữ nào chạy trực tiếp trong trình duyệt web?", opts: ["Python", "C++", "Java", "JavaScript"], ans: 3 },
+  { q: "Đâu là một React hook hợp lệ?", opts: ["useFetch", "useState", "useVar", "useReact"], ans: 1 },
+  { q: "Giao thức truyền tải văn bản siêu văn bản an toàn là?", opts: ["HTTP", "FTP", "HTTPS", "SMTP"], ans: 2 }
+];
+
 export default function GameModal({ game, weekNumber, streak, onComplete, onClose }: Props) {
   const supabase = createClient();
   const gc = getGameContent(weekNumber);
@@ -149,6 +157,56 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const [votingTimer, setVotingTimer] = useState<number>(120);
   const [votingScores, setVotingScores] = useState<Record<string, number>>({});
   const [votedSubmitted, setVotedSubmitted] = useState<boolean>(false);
+
+  // Game 1 (Đại chiến Bom) state
+  const [bombHolderId, setBombHolderId] = useState<string | null>(null);
+  const [bombTimeLeft, setBombTimeLeft] = useState<number>(15);
+  const [bombQuestion, setBombQuestion] = useState<{ q: string; opts: string[]; ans: number } | null>(null);
+  const [bombLockedUntil, setBombLockedUntil] = useState<number>(0);
+  const [bombActiveUsers, setBombActiveUsers] = useState<{ [id: string]: { name: string; lastSeen: number } }>({});
+  const [bombStatusText, setBombStatusText] = useState<string>('Đang đợi giảng viên kích hoạt bom...');
+  const [bombScore, setBombScore] = useState<number>(0);
+  const [bombCompleted, setBombCompleted] = useState<boolean>(false);
+  const bombChannelRef = useRef<any>(null);
+
+  // Game 2 (Đấu trường sinh tử) state
+  const [battleLives, setBattleLives] = useState<number>(3);
+  const [battleStep, setBattleStep] = useState<'waiting' | 'playing' | 'spectating' | 'finished'>('waiting');
+  const [battleQuestion, setBattleQuestion] = useState<{ q: string; opts: string[]; ans: number; idx: number; total: number } | null>(null);
+  const [battleSelectedIdx, setBattleSelectedIdx] = useState<number | null>(null);
+  const [battleHasSubmitted, setBattleHasSubmitted] = useState<boolean>(false);
+  const [battleTotalCorrect, setBattleTotalCorrect] = useState<number>(0);
+  const [battleSurvivors, setBattleSurvivors] = useState<{ id: string; name: string; lives: number }[]>([]);
+  const [battleFloatingEmojis, setBattleFloatingEmojis] = useState<{ id: string; emoji: string; left: number }[]>([]);
+  const battleChannelRef = useRef<any>(null);
+
+  // Game 5 (Kẻ giả mạo) state
+  const [undercoverWord, setUndercoverWord] = useState<string | null>(null);
+  const [undercoverRole, setUndercoverRole] = useState<'normal' | 'undercover' | 'mrwhite' | null>(null);
+  const [undercoverStep, setUndercoverStep] = useState<'waiting' | 'describing' | 'voting' | 'ended'>('waiting');
+  const [undercoverSelectedDesc, setUndercoverSelectedDesc] = useState<string | null>(null);
+  const [undercoverDescriptions, setUndercoverDescriptions] = useState<{ [id: string]: { name: string; desc: string } }>({});
+  const [undercoverVotes, setUndercoverVotes] = useState<{ [id: string]: number }>({});
+  const [undercoverHasVoted, setUndercoverHasVoted] = useState<boolean>(false);
+  const [undercoverWinner, setUndercoverWinner] = useState<string | null>(null);
+  const undercoverChannelRef = useRef<any>(null);
+
+  // Game 9 (Cuộc đua nối từ) state
+  const [wordChainList, setWordChainList] = useState<string[]>([]);
+  const [wordChainOptions, setWordChainOptions] = useState<string[]>([]);
+  const [wordChainCurrentWord, setWordChainCurrentWord] = useState<string>('');
+  const [wordChainLastWinner, setWordChainLastWinner] = useState<string | null>(null);
+  const [wordChainLocked, setWordChainLocked] = useState<boolean>(false);
+  const [wordChainCount, setWordChainCount] = useState<number>(0);
+  const wordChainChannelRef = useRef<any>(null);
+
+  // Game 15 (Đại chiến phản xạ) state
+  const [reflexState, setReflexState] = useState<'idle' | 'countdown' | 'go' | 'clicked'>('idle');
+  const [reflexCountdown, setReflexCountdown] = useState<number>(3);
+  const [reflexGoTime, setReflexGoTime] = useState<number>(0);
+  const [reflexTime, setReflexTime] = useState<number | null>(null);
+  const [reflexLeaderboard, setReflexLeaderboard] = useState<{ name: string; time: number }[]>([]);
+  const reflexChannelRef = useRef<any>(null);
 
   // Fetch current profile for matchmaking
   useEffect(() => {
@@ -518,6 +576,319 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     };
   }, [game.id]);
 
+  // Game 1 (Đại chiến Bom) student realtime effect
+  useEffect(() => {
+    if (game.id !== 1 || !currentUser) return;
+
+    const channel = supabase.channel('bomb_challenge_global', {
+      config: {
+        broadcast: { self: true }
+      }
+    });
+    bombChannelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'bomb_ping' }, ({ payload }: { payload: any }) => {
+        const { userId, name } = payload;
+        setBombActiveUsers(prev => ({
+          ...prev,
+          [userId]: { name, lastSeen: Date.now() }
+        }));
+      })
+      .on('broadcast', { event: 'start_bomb' }, ({ payload }: { payload: any }) => {
+        const { holderId, question } = payload;
+        setBombHolderId(holderId);
+        setBombQuestion(question);
+        setBombTimeLeft(15);
+        setBombExploded(false);
+        setBombCompleted(false);
+        setBombStatusText(holderId === currentUser.id ? '💣 BẠN ĐANG GIỮ BOM! Trả lời ngay!' : `💣 Quả bom đang ở chỗ ${bombActiveUsers[holderId]?.name || 'một bạn khác'}`);
+      })
+      .on('broadcast', { event: 'pass_bomb' }, ({ payload }: { payload: any }) => {
+        const { newHolderId, question } = payload;
+        setBombHolderId(newHolderId);
+        setBombQuestion(question);
+        setBombTimeLeft(15);
+        setBombStatusText(newHolderId === currentUser.id ? '💣 BẠN ĐANG GIỮ BOM! Trả lời ngay!' : `💣 Quả bom được chuyền tới ${bombActiveUsers[newHolderId]?.name || 'một bạn khác'}`);
+      })
+      .on('broadcast', { event: 'bomb_exploded' }, ({ payload }: { payload: any }) => {
+        const { holderId } = payload;
+        setBombHolderId(null);
+        setBombExploded(true);
+        setBombStatusText(`💥 Quả bom đã nổ tung ở chỗ ${bombActiveUsers[holderId]?.name || 'một bạn khác'}!`);
+        if (holderId === currentUser.id) {
+          finish(5, 'Bị bom nổ (+5đ)');
+        } else {
+          finish(15, 'Sống sót (+15đ)');
+        }
+      })
+      .subscribe();
+
+    // Send periodic presence ping for bomb game
+    const pingInterval = setInterval(() => {
+      channel.send({
+        type: 'broadcast',
+        event: 'bomb_ping',
+        payload: { userId: currentUser.id, name: currentUser.full_name }
+      });
+    }, 2000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      bombChannelRef.current = null;
+      clearInterval(pingInterval);
+    };
+  }, [game.id, currentUser, bombActiveUsers]);
+
+  // Countdown timer for Game 1 bomb holder
+  useEffect(() => {
+    if (game.id !== 1 || !bombHolderId || bombCompleted) return;
+
+    const t = setInterval(() => {
+      setBombTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(t);
+          if (bombHolderId === currentUser?.id) {
+            // Explode bomb!
+            bombChannelRef.current?.send({
+              type: 'broadcast',
+              event: 'bomb_exploded',
+              payload: { holderId: currentUser.id }
+            });
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(t);
+  }, [game.id, bombHolderId, bombCompleted, currentUser]);
+
+  // Game 2 (Đấu trường sinh tử) student realtime effect
+  useEffect(() => {
+    if (game.id !== 2 || !currentUser) return;
+
+    const channel = supabase.channel('battle_royale_global', {
+      config: {
+        broadcast: { self: true }
+      }
+    });
+    battleChannelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'battle_ping' }, ({ payload }: { payload: any }) => {
+        const { userId, name, lives } = payload;
+        setBattleSurvivors(prev => {
+          const idx = prev.findIndex(s => s.id === userId);
+          const next = [...prev];
+          if (idx >= 0) {
+            next[idx] = { id: userId, name, lives };
+          } else {
+            next.push({ id: userId, name, lives });
+          }
+          return next;
+        });
+      })
+      .on('broadcast', { event: 'start_battle' }, () => {
+        setBattleLives(3);
+        setBattleStep('playing');
+        setBattleTotalCorrect(0);
+        setBattleQuestion(null);
+        setBattleSelectedIdx(null);
+        setBattleHasSubmitted(false);
+      })
+      .on('broadcast', { event: 'battle_question' }, ({ payload }: { payload: any }) => {
+        const { question } = payload;
+        setBattleQuestion(question);
+        setBattleSelectedIdx(null);
+        setBattleHasSubmitted(false);
+      })
+      .on('broadcast', { event: 'battle_emoji' }, ({ payload }: { payload: any }) => {
+        const { emoji } = payload;
+        const newEmojiObj = {
+          id: Math.random().toString(),
+          emoji,
+          left: Math.random() * 80 + 10
+        };
+        setBattleFloatingEmojis(prev => [...prev.slice(-15), newEmojiObj]);
+      })
+      .on('broadcast', { event: 'end_battle' }, () => {
+        setBattleStep('finished');
+        if (battleLives > 0) {
+          finish(15, `Sinh tồn thành công: ${battleLives} Tim (+15đ)`);
+        } else {
+          finish(5, `Bị loại (+5đ)`);
+        }
+      })
+      .subscribe();
+
+    const pingInterval = setInterval(() => {
+      channel.send({
+        type: 'broadcast',
+        event: 'battle_ping',
+        payload: { userId: currentUser.id, name: currentUser.full_name, lives: battleLives }
+      });
+    }, 2000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      battleChannelRef.current = null;
+      clearInterval(pingInterval);
+    };
+  }, [game.id, currentUser, battleLives]);
+
+  // Game 5 (Kẻ giả mạo) student realtime effect
+  useEffect(() => {
+    if (game.id !== 5 || !currentUser || !selectedGroup) return;
+
+    const channel = supabase.channel(`undercover_group_${selectedGroup}`, {
+      config: {
+        broadcast: { self: true }
+      }
+    });
+    undercoverChannelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'undercover_start' }, ({ payload }: { payload: any }) => {
+        const { keywordPair, assignments } = payload;
+        const role = assignments[currentUser.id] || 'normal';
+        setUndercoverRole(role);
+        setUndercoverWord(role === 'normal' ? keywordPair.normal : role === 'undercover' ? keywordPair.undercover : '?');
+        setUndercoverStep('describing');
+        setUndercoverDescriptions({});
+        setUndercoverVotes({});
+        setUndercoverHasVoted(false);
+        setUndercoverWinner(null);
+      })
+      .on('broadcast', { event: 'undercover_describe' }, ({ payload }: { payload: any }) => {
+        const { userId, name, desc } = payload;
+        setUndercoverDescriptions(prev => ({
+          ...prev,
+          [userId]: { name, desc }
+        }));
+      })
+      .on('broadcast', { event: 'undercover_step_vote' }, () => {
+        setUndercoverStep('voting');
+      })
+      .on('broadcast', { event: 'undercover_vote' }, ({ payload }: { payload: any }) => {
+        const { targetId } = payload;
+        setUndercoverVotes(prev => ({
+          ...prev,
+          [targetId]: (prev[targetId] || 0) + 1
+        }));
+      })
+      .on('broadcast', { event: 'undercover_end' }, ({ payload }: { payload: any }) => {
+        const { winner } = payload;
+        setUndercoverWinner(winner);
+        setUndercoverStep('ended');
+        if (winner === 'undercover' && undercoverRole === 'undercover') {
+          finish(15, 'Kẻ giả mạo thắng (+15đ)');
+        } else if (winner === 'mrwhite' && undercoverRole === 'mrwhite') {
+          finish(15, 'Mr White thắng (+15đ)');
+        } else if (winner === 'normal' && undercoverRole === 'normal') {
+          finish(15, 'Dân thường thắng (+15đ)');
+        } else {
+          finish(10, 'Tham gia chơi (+10đ)');
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      undercoverChannelRef.current = null;
+    };
+  }, [game.id, currentUser, selectedGroup, undercoverRole]);
+
+  // Game 9 (Cuộc đua nối từ) student realtime effect
+  useEffect(() => {
+    if (game.id !== 9 || !currentUser) return;
+
+    const channel = supabase.channel('word_chain_global', {
+      config: {
+        broadcast: { self: true }
+      }
+    });
+    wordChainChannelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'start_word_chain' }, ({ payload }: { payload: any }) => {
+        const { word, options } = payload;
+        setWordChainCurrentWord(word);
+        setWordChainOptions(options || []);
+        setWordChainList([word]);
+        setWordChainLastWinner(null);
+        setWordChainCount(0);
+        setWordChainLocked(false);
+      })
+      .on('broadcast', { event: 'word_chain_next' }, ({ payload }: { payload: any }) => {
+        const { word, options, winnerName, chainLength } = payload;
+        setWordChainCurrentWord(word);
+        setWordChainOptions(options || []);
+        setWordChainList(prev => [...prev, word]);
+        setWordChainLastWinner(winnerName);
+        setWordChainCount(chainLength || 0);
+        setWordChainLocked(false);
+      })
+      .on('broadcast', { event: 'end_word_chain' }, () => {
+        finish(15, `Tham gia nối từ (+15đ)`);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      wordChainChannelRef.current = null;
+    };
+  }, [game.id, currentUser]);
+
+  // Game 15 (Đại chiến phản xạ) student realtime effects
+  useEffect(() => {
+    if (game.id !== 15 || !currentUser) return;
+
+    const channel = supabase.channel('reflex_rush_global', {
+      config: {
+        broadcast: { self: true }
+      }
+    });
+    reflexChannelRef.current = channel;
+
+    let countdownInterval: any = null;
+
+    channel
+      .on('broadcast', { event: 'reflex_start_countdown' }, () => {
+        setReflexState('countdown');
+        setReflexCountdown(3);
+        setReflexTime(null);
+
+        if (countdownInterval) clearInterval(countdownInterval);
+        let count = 3;
+        countdownInterval = setInterval(() => {
+          count -= 1;
+          if (count <= 0) {
+            clearInterval(countdownInterval);
+            setReflexState('go');
+            setReflexGoTime(Date.now());
+          } else {
+            setReflexCountdown(count);
+          }
+        }, 1000);
+      })
+      .on('broadcast', { event: 'reflex_leaderboard_update' }, ({ payload }: { payload: any }) => {
+        const { leaderboard } = payload;
+        setReflexLeaderboard(leaderboard || []);
+      })
+      .on('broadcast', { event: 'reflex_end' }, () => {
+        setReflexState('idle');
+      })
+      .subscribe();
+
+    return () => {
+      if (countdownInterval) clearInterval(countdownInterval);
+      supabase.removeChannel(channel);
+      reflexChannelRef.current = null;
+    };
+  }, [game.id, currentUser]);
+
   // Game 11 (Idea Voting) student realtime effects
   useEffect(() => {
     if (game.id !== 11) return;
@@ -561,33 +932,10 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
       });
     }, 1000);
 
-    // Auto-fallback mock session if no response after 4 seconds
-    const tMock = setTimeout(() => {
-      setVotingState(current => {
-        if (current === 'waiting') {
-          const mockIdeas = [
-            { id: 'idea_0', label: 'Hệ thống phân làn xe buýt điện thông minh (Nhóm 1)' },
-            { id: 'idea_1', label: 'Trạm sạc xe điện kết hợp cafe năng lượng mặt trời (Nhóm 2)' },
-            { id: 'idea_2', label: 'Bản đồ mật độ giao thông đô thị thời gian thực (Nhóm 3)' },
-            { id: 'idea_3', label: 'Ứng dụng gọi xe đạp công cộng qua QR Code (Nhóm 4)' },
-            { id: 'idea_4', label: 'Đèn đường thông minh tự động cảm biến chuyển động (Nhóm 5)' }
-          ];
-          setVotingIdeas(mockIdeas);
-          setVotingEndTime(Date.now() + 120000);
-          const mockScores: Record<string, number> = {};
-          mockIdeas.forEach(i => { mockScores[i.id] = Math.floor(Math.random() * 10); });
-          setVotingScores(mockScores);
-          return 'voting';
-        }
-        return current;
-      });
-    }, 4000);
-
     return () => {
       supabase.removeChannel(channel);
       votingChannelRef.current = null;
       clearTimeout(tReq);
-      clearTimeout(tMock);
     };
   }, [game.id]);
 
@@ -606,22 +954,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     }
   }, [game.id, votingState, votingEndTime]);
 
-  // Simulate other votes in mock/solo mode
-  useEffect(() => {
-    if (game.id !== 11 || votingState !== 'voting' || votingIdeas.length === 0) return;
-    
-    const interval = setInterval(() => {
-      setVotingScores(prev => {
-        const next = { ...prev };
-        const randomIdeaId = votingIdeas[Math.floor(Math.random() * votingIdeas.length)].id;
-        const randomPts = [1, 2, 3][Math.floor(Math.random() * 3)];
-        next[randomIdeaId] = (next[randomIdeaId] || 0) + randomPts;
-        return next;
-      });
-    }, 4000);
 
-    return () => clearInterval(interval);
-  }, [game.id, votingState, votingIdeas]);
 
   const getGroupMembers = () => {
     const names = new Set<string>();
@@ -880,38 +1213,227 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
         if (done) return <Wrap><Done /></Wrap>;
 
 
-        // ── GAME 1: Speed Check-in ─────────────────────────────────────────────────
-        if (game.id === 1) return (
-          <Wrap>
-            <div className="text-center space-y-lg">
-              <div className="text-5xl animate-bounce">⚡</div>
-              <h3 className="text-xl font-extrabold text-on-surface">Điểm danh nhanh nhất!</h3>
-              <p className="text-sm text-on-surface-variant">Nhấn nút ngay khi buổi học bắt đầu — nhanh nhất được thêm điểm!</p>
-              <button onClick={() => {
-                const rank = Math.floor(Math.random() * 5) + 1;
-                const earned = rank === 1 ? 15 : rank <= 3 ? 12 : 10;
-                finish(earned);
-              }} className="w-full py-xl text-2xl font-extrabold bg-primary text-on-primary rounded-xxl active:scale-95 hover:bg-primary/90 transition-all cta-pulse shadow-xl">
-                ⚡ ĐIỂM DANH NGAY!
-              </button>
-            </div>
-          </Wrap>
-        );
+        // ── GAME 1: Hot Potato Bomb ───────────────────────────────────────────────
+        if (game.id === 1) {
+          const isHolder = bombHolderId === currentUser?.id;
+          const isLocked = Date.now() < bombLockedUntil;
+          return (
+            <Wrap>
+              <div className="space-y-md">
+                <div className={`p-lg rounded-xxl text-center transition-all duration-300 ${
+                  isHolder 
+                    ? 'bg-error-container/20 border-2 border-error animate-pulse' 
+                    : 'bg-surface-container border border-outline-variant/30'
+                }`}>
+                  <div className={`text-6xl mb-xs ${isHolder ? 'animate-bounce' : ''}`}>
+                    {bombExploded ? '💥' : isHolder ? '💣' : '⏳'}
+                  </div>
+                  <h3 className="text-xl font-extrabold text-on-surface">Đại chiến bom hẹn giờ</h3>
+                  <p className="text-xs font-semibold text-on-surface-variant mt-1">{bombStatusText}</p>
 
-        // ── GAME 2: Secret Question ────────────────────────────────────────────────
-        if (game.id === 2) return (
-          <Wrap>
-            <div className="space-y-md">
-              <div className="bg-secondary-container/20 rounded-xl p-md border border-secondary/20">
-                <p className="text-xs font-bold text-secondary uppercase mb-xs">Câu hỏi từ giảng viên</p>
-                <p className="font-semibold text-on-surface">{gc.secretQuestion}</p>
+                  {bombHolderId && !bombExploded && (
+                    <div className="mt-md flex flex-col items-center justify-center">
+                      <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Thời gian còn lại</p>
+                      <span className={`text-4xl font-black font-mono mt-xs ${bombTimeLeft <= 5 ? 'text-error animate-ping' : 'text-primary'}`}>
+                        {bombTimeLeft}s
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {isHolder && bombQuestion && !bombExploded && (
+                  <div className="space-y-sm animate-pop-in">
+                    <div className="p-md bg-secondary-container/20 rounded-xl border border-secondary/20">
+                      <p className="text-xs font-bold text-secondary uppercase mb-xs">Câu hỏi gỡ bom</p>
+                      <p className="font-semibold text-on-surface text-sm">{bombQuestion.q}</p>
+                    </div>
+                    
+                    <div className="space-y-sm">
+                      {bombQuestion.opts.map((opt: string, idx: number) => (
+                        <button
+                          key={idx}
+                          disabled={isLocked}
+                          onClick={() => {
+                            if (idx === bombQuestion.ans) {
+                              setBombCompleted(true);
+                              const others = Object.keys(bombActiveUsers).filter(id => id !== currentUser?.id);
+                              if (others.length > 0) {
+                                const nextId = others[Math.floor(Math.random() * others.length)];
+                                const nextQ = BOMB_QUESTIONS[Math.floor(Math.random() * BOMB_QUESTIONS.length)];
+                                bombChannelRef.current?.send({
+                                  type: 'broadcast',
+                                  event: 'pass_bomb',
+                                  payload: { newHolderId: nextId, question: nextQ }
+                                });
+                              } else {
+                                finish(15, 'Gỡ bom thành công (+15đ)');
+                              }
+                            } else {
+                              setBombLockedUntil(Date.now() + 1500);
+                            }
+                          }}
+                          className={`w-full p-sm rounded-xl text-left text-sm font-medium border transition-all ${
+                            isLocked ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/40'
+                          } bg-surface-container border-outline-variant/30`}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                    {isLocked && (
+                      <p className="text-center text-xs font-bold text-error animate-pulse">Trả lời sai! Đang bị khóa 1.5s...</p>
+                    )}
+                  </div>
+                )}
+
+                {!isHolder && !bombExploded && (
+                  <div className="space-y-sm">
+                    <p className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">Thành viên trong phòng ({Object.keys(bombActiveUsers).length})</p>
+                    <div className="grid grid-cols-2 gap-xs max-h-40 overflow-y-auto p-1 bg-surface-container-low rounded-xl">
+                      {Object.values(bombActiveUsers).map((u: any, idx) => (
+                        <div key={idx} className="flex items-center gap-xs p-xs text-xs font-medium text-on-surface bg-surface-container rounded-lg">
+                          <span className="w-2 h-2 rounded-full bg-success" />
+                          <span className="truncate">{u.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              <textarea value={text} onChange={e => setText(e.target.value)} rows={3} placeholder="Nhập câu trả lời của bạn..."
-                className="w-full p-md rounded-xl border border-outline-variant/40 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm resize-none bg-surface-container-low" />
-              <Btn onClick={() => finish(10)} disabled={text.trim().length < 3}>Gửi câu trả lời (+10 điểm)</Btn>
-            </div>
-          </Wrap>
-        );
+            </Wrap>
+          );
+        }
+
+        // ── GAME 2: Battle Royale ──────────────────────────────────────────────────
+        if (game.id === 2) {
+          const isPlaying = battleStep === 'playing';
+          const isSpectating = battleStep === 'spectating';
+          return (
+            <Wrap>
+              <div className="space-y-md relative overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none z-10">
+                  {battleFloatingEmojis.map(fe => (
+                    <div
+                      key={fe.id}
+                      className="absolute bottom-0 text-3xl animate-float-up"
+                      style={{ left: `${fe.left}%` }}
+                    >
+                      {fe.emoji}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-between items-center bg-surface-container p-sm rounded-xl border border-outline-variant/30">
+                  <div className="flex gap-xs">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <span key={i} className="text-xl">
+                        {i < battleLives ? '❤️' : '🖤'}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+                      {isSpectating ? 'Chế độ khán giả' : `Sống sót: ${battleLives}/3 Tim`}
+                    </p>
+                  </div>
+                </div>
+
+                {battleStep === 'waiting' && (
+                  <div className="text-center py-lg space-y-md">
+                    <div className="text-5xl animate-bounce">🦖</div>
+                    <h4 className="font-extrabold text-on-surface">Đấu trường sinh tử</h4>
+                    <p className="text-xs text-on-surface-variant font-semibold">Đang đợi giảng viên bắt đầu trận đấu trắc nghiệm sinh tồn...</p>
+                  </div>
+                )}
+
+                {isPlaying && battleQuestion && (
+                  <div className="space-y-sm animate-pop-in">
+                    <div className="flex justify-between items-center text-xs font-bold text-on-surface-variant">
+                      <span>Câu {battleQuestion.idx + 1}/{battleQuestion.total}</span>
+                    </div>
+                    <div className="p-md bg-primary-container/20 rounded-xl border border-primary/20">
+                      <p className="font-bold text-on-surface text-sm">{battleQuestion.q}</p>
+                    </div>
+
+                    <div className="space-y-sm">
+                      {battleQuestion.opts.map((opt: string, idx: number) => {
+                        const isSelected = battleSelectedIdx === idx;
+                        return (
+                          <button
+                            key={idx}
+                            disabled={battleHasSubmitted}
+                            onClick={() => {
+                              setBattleSelectedIdx(idx);
+                              setBattleHasSubmitted(true);
+                              const isCorrect = idx === battleQuestion.ans;
+                              if (isCorrect) {
+                                setBattleTotalCorrect(prev => prev + 1);
+                              } else {
+                                setBattleLives(prev => {
+                                  const next = prev - 1;
+                                  if (next <= 0) {
+                                    setBattleStep('spectating');
+                                  }
+                                  return next;
+                                });
+                              }
+                            }}
+                            className={`w-full p-sm rounded-xl text-left text-sm font-medium border transition-all ${
+                              isSelected 
+                                ? 'bg-primary text-on-primary border-primary' 
+                                : 'bg-surface-container border-outline-variant/30 hover:border-primary/40'
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {isSpectating && (
+                  <div className="text-center py-md space-y-md">
+                    <div className="text-5xl animate-pulse">💀</div>
+                    <h4 className="font-extrabold text-error">Bạn đã bị loại!</h4>
+                    <p className="text-xs text-on-surface-variant">Nhưng bạn vẫn có thể thả biểu cảm để cổ vũ:</p>
+                    <div className="flex justify-center gap-sm">
+                      {['🎉', '🔥', '💀', '👏', '💥', '👻'].map(emoji => (
+                        <button
+                          key={emoji}
+                          onClick={() => {
+                            battleChannelRef.current?.send({
+                              type: 'broadcast',
+                              event: 'battle_emoji',
+                              payload: { emoji }
+                            });
+                          }}
+                          className="w-12 h-12 text-2xl bg-surface-container rounded-full active:scale-95 hover:scale-105 transition-all shadow-md flex items-center justify-center cursor-pointer border border-outline-variant/20"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(isPlaying || isSpectating) && (
+                  <div className="space-y-xs pt-xs border-t border-outline-variant/20">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-on-surface-variant">Sinh viên đang sinh tồn ({battleSurvivors.filter(s => s.lives > 0).length})</p>
+                    <div className="grid grid-cols-2 gap-xs max-h-24 overflow-y-auto p-1 bg-surface-container-low rounded-xl">
+                      {battleSurvivors.filter(s => s.lives > 0).map((s, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-xs text-xs font-semibold bg-surface-container rounded-lg">
+                          <span className="truncate max-w-[80px]">{s.name}</span>
+                          <span className="text-xs">{'❤️'.repeat(s.lives)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Wrap>
+          );
+        }
 
         // ── GAME 3: QR Code Attendance ─────────────────────────────────────────────
         if (game.id === 3) {
@@ -1209,25 +1731,133 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
           </Wrap>
         );
 
-        // ── GAME 5: Keyword Guess ──────────────────────────────────────────────────
-        if (game.id === 5) return (
-          <Wrap>
-            <div className="space-y-md">
-              <div className="bg-tertiary-container/20 rounded-xl p-md border border-tertiary/20">
-                <p className="text-xs font-bold text-tertiary uppercase mb-xs">💡 Gợi ý</p>
-                <p className="text-sm font-medium text-on-surface">{gc.keywordHint}</p>
-                {hintShown && <p className="text-xs text-on-surface-variant mt-xs">Từ bắt đầu bằng: <b>{gc.keyword?.[0].toUpperCase()}</b></p>}
+        // ── GAME 5: Undercover / Mr. White ─────────────────────────────────────────
+        if (game.id === 5) {
+          const isNormal = undercoverRole === 'normal';
+          const isUndercover = undercoverRole === 'undercover';
+          const isWhite = undercoverRole === 'mrwhite';
+          const undercovers = Object.entries(undercoverDescriptions);
+
+          const undercoverClues: Record<string, string[]> = {
+            'React': ['Thư viện JS', 'Facebook', 'Virtual DOM', 'Component-based'],
+            'Vue': ['Framework JS', 'Evan You', 'Dễ học', 'Template-based'],
+            'Python': ['Độ thụt lề', 'Đơn giản', 'Trí tuệ nhân tạo', 'Scripting'],
+            'Java': ['Hướng đối tượng', 'JVM', 'Cú pháp nghiêm ngặt', 'Android'],
+            'SQL': ['Truy vấn', 'Bảng dữ liệu', 'Quan hệ', 'Structured'],
+            'NoSQL': ['Không lược đồ', 'Tài liệu', 'Khả năng mở rộng', 'Key-value'],
+            '?': ['Tôi không biết', 'Khó đoán', 'Bí ẩn', 'Trừu tượng']
+          };
+
+          const options = undercoverClues[undercoverWord || 'React'] || ['Công cụ lập trình', 'Hiện đại', 'Phổ biến', 'Hiệu quả'];
+
+          return (
+            <Wrap>
+              <div className="space-y-md">
+                <div className="bg-surface-container p-md rounded-xl text-center border border-outline-variant/30">
+                  <div className="text-5xl mb-xs">🕵️</div>
+                  <h3 className="text-lg font-extrabold text-on-surface">Kẻ giả mạo lớp học</h3>
+                  <p className="text-xs font-medium text-on-surface-variant">Nhóm thực tế của bạn: <span className="font-extrabold text-primary">{selectedGroup || 'Chưa thiết lập'}</span></p>
+                </div>
+
+                {undercoverStep === 'waiting' && (
+                  <div className="text-center py-lg space-y-xs">
+                    <p className="font-bold text-on-surface text-sm animate-pulse">Đang chờ giảng viên phát từ khóa...</p>
+                    <p className="text-xs text-on-surface-variant">Hãy đảm bảo nhóm của bạn đã được thiết lập đúng!</p>
+                  </div>
+                )}
+
+                {undercoverStep === 'describing' && undercoverWord && (
+                  <div className="space-y-sm animate-pop-in">
+                    <div className="p-md bg-secondary-container/20 rounded-xl text-center border border-secondary/20">
+                      <p className="text-xs font-bold text-secondary uppercase mb-xs">Từ khóa bí mật của bạn</p>
+                      <p className="text-2xl font-black text-on-surface">{undercoverWord}</p>
+                      {isWhite && <p className="text-[10px] text-error font-extrabold mt-xs">Bạn là Mr. White! Hãy quan sát mô tả của người khác để đoán từ khóa!</p>}
+                    </div>
+
+                    {!undercoverSelectedDesc ? (
+                      <div className="space-y-sm">
+                        <p className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">Chọn 1 từ mô tả từ khóa của bạn:</p>
+                        {options.map((opt, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              setUndercoverSelectedDesc(opt);
+                              undercoverChannelRef.current?.send({
+                                type: 'broadcast',
+                                event: 'undercover_describe',
+                                payload: { userId: currentUser?.id, name: currentUser?.full_name, desc: opt }
+                              });
+                            }}
+                            className="w-full p-sm rounded-xl text-left text-sm font-semibold bg-surface-container border border-outline-variant/30 hover:border-primary/40 transition-all cursor-pointer"
+                          >
+                            💬 {opt}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-md space-y-xs bg-surface-container-low rounded-xl border border-outline-variant/20">
+                        <p className="text-xs text-on-surface-variant font-semibold">Bạn đã gửi mô tả của mình:</p>
+                        <p className="font-extrabold text-primary">"{undercoverSelectedDesc}"</p>
+                        <p className="text-[10px] text-on-surface-variant animate-pulse mt-sm">Đang đợi các thành viên khác mô tả...</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {undercoverStep === 'voting' && (
+                  <div className="space-y-sm animate-pop-in">
+                    <p className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">Chọn người bạn nghi ngờ là Kẻ giả mạo hoặc Mr. White:</p>
+                    <div className="space-y-sm max-h-60 overflow-y-auto pr-xs">
+                      {undercovers.map(([uid, u]: [string, any]) => {
+                        const voteCount = undercoverVotes[uid] || 0;
+                        return (
+                          <div key={uid} className="flex justify-between items-center p-sm bg-surface-container border border-outline-variant/30 rounded-xl">
+                            <div>
+                              <p className="text-xs font-bold text-on-surface">{u.name} {uid === currentUser?.id && '(Bạn)'}</p>
+                              <p className="text-sm font-extrabold text-primary">"{u.desc}"</p>
+                            </div>
+                            <button
+                              disabled={undercoverHasVoted || uid === currentUser?.id}
+                              onClick={() => {
+                                setUndercoverHasVoted(true);
+                                undercoverChannelRef.current?.send({
+                                  type: 'broadcast',
+                                  event: 'undercover_vote',
+                                  payload: { voterId: currentUser?.id, targetId: uid }
+                                });
+                              }}
+                              className={`px-sm py-xs text-xs font-extrabold rounded-lg transition-all ${
+                                undercoverHasVoted
+                                  ? 'bg-surface-container-high text-on-surface-variant'
+                                  : 'bg-error text-on-error hover:bg-error/90 active:scale-95 cursor-pointer'
+                              }`}
+                            >
+                              Vote {voteCount > 0 ? `(${voteCount})` : ''}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {undercoverStep === 'ended' && (
+                  <div className="text-center py-lg space-y-md animate-pop-in">
+                    <div className="text-5xl">🏆</div>
+                    <h3 className="text-xl font-black text-primary">Trò chơi kết thúc!</h3>
+                    <div className="bg-secondary-container/20 rounded-xl p-md border border-secondary/20 inline-block">
+                      <p className="text-xs font-bold text-secondary uppercase">Phe chiến thắng</p>
+                      <p className="text-lg font-extrabold text-on-surface">
+                        {undercoverWinner === 'normal' ? 'Dân thường 🙋‍♂️' : undercoverWinner === 'undercover' ? 'Kẻ giả mạo 🕵️' : 'Mr. White 👻'}
+                      </p>
+                    </div>
+                    <p className="text-xs text-on-surface-variant font-semibold mt-sm">Vai trò của bạn là: <b>{isNormal ? 'Dân thường' : isUndercover ? 'Kẻ giả mạo' : 'Mr. White'}</b></p>
+                  </div>
+                )}
               </div>
-              <input value={text} onChange={e => setText(e.target.value)} placeholder="Nhập từ khóa bạn đoán..."
-                className="w-full p-md rounded-xl border border-outline-variant/40 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none bg-surface-container-low" />
-              <div className="flex gap-sm">
-                <button onClick={() => setHintShown(true)} className="flex-1 py-sm rounded-xl border border-outline-variant/40 text-sm font-semibold text-on-surface-variant hover:bg-surface-container transition-all">Gợi ý thêm</button>
-                <button onClick={() => { if (text.trim().toLowerCase() === gc.keyword?.toLowerCase()) finish(15); else finish(5); }}
-                  disabled={!text.trim()} className="flex-1 py-sm rounded-xl bg-primary text-on-primary font-bold active:scale-95 disabled:opacity-40 transition-all">Đoán!</button>
-              </div>
-            </div>
-          </Wrap>
-        );
+            </Wrap>
+          );
+        }
 
         // ── GAME 6: Raise Hand ────────────────────────────────────────────────────
         if (game.id === 6) return (
@@ -1282,36 +1912,80 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
           </Wrap>
         );
 
-        // ── GAME 9: Mini Quiz ─────────────────────────────────────────────────────
+        // ── GAME 9: Word Chain Blitz ──────────────────────────────────────────────
         if (game.id === 9) {
-          const qs = gc.quizQuestions || [];
-          const q = qs[quizIdx];
-          if (!q) return <Wrap><div className="text-center"><p className="font-bold text-on-surface">Chưa có câu hỏi.</p><Btn onClick={onClose}>Đóng</Btn></div></Wrap>;
           return (
             <Wrap>
               <div className="space-y-md">
-                <div className="flex justify-between items-center">
-                  <p className="text-xs font-bold text-on-surface-variant">Câu {quizIdx + 1}/{qs.length}</p>
-                  <div className="flex gap-1">{qs.map((_, i) => <div key={i} className={`w-6 h-1.5 rounded-full ${i < quizIdx ? 'bg-tertiary' : i === quizIdx ? 'bg-primary' : 'bg-surface-container-high'}`} />)}</div>
+                <div className="bg-surface-container p-md rounded-xl text-center border border-outline-variant/30">
+                  <div className="text-5xl mb-xs animate-pulse">🔗</div>
+                  <h3 className="text-lg font-extrabold text-on-surface">Cuộc đua nối từ chuyên ngành</h3>
+                  <p className="text-xs font-medium text-on-surface-variant">Sinh viên cả lớp cùng tranh tài gõ nối tiếp từ khóa.</p>
                 </div>
-                <p className="font-semibold text-on-surface">{q.q}</p>
-                <div className="space-y-sm">
-                  {q.opts.map((opt, i) => (
-                    <button key={i} onClick={() => setSelected(i)}
-                      className={`w-full p-sm rounded-xl text-left text-sm font-medium border transition-all ${selected === i ? 'bg-primary text-on-primary border-primary' : 'bg-surface-container border-outline-variant/30 hover:border-primary/40'}`}>
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-                <Btn disabled={selected === null} onClick={() => {
-                  const correct = selected === q.ans;
-                  const ns = quizScore + (correct ? 5 : 0);
-                  setScore(ns); setSelected(null);
-                  if (quizIdx + 1 >= qs.length) finish(ns, `Đạt ${ns}/${qs.length * 5} điểm`);
-                  else setQuizIdx(quizIdx + 1);
-                }}>
-                  {quizIdx + 1 < qs.length ? 'Câu tiếp theo →' : 'Hoàn thành Quiz'}
-                </Btn>
+
+                {!wordChainCurrentWord ? (
+                  <div className="text-center py-lg space-y-xs">
+                    <p className="font-bold text-on-surface text-sm animate-pulse">Đang chờ giảng viên phát từ bắt đầu...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-sm animate-pop-in">
+                    <div className="flex justify-between items-center text-xs font-bold text-on-surface-variant">
+                      <span>Độ dài chuỗi: <b className="text-primary">{wordChainCount} từ</b></span>
+                      {wordChainLastWinner && (
+                        <span className="text-success truncate max-w-[150px]">⚡ {wordChainLastWinner}</span>
+                      )}
+                    </div>
+
+                    <div className="p-lg bg-tertiary-container/20 rounded-xxl text-center border border-tertiary/20">
+                      <p className="text-xs font-bold text-tertiary uppercase tracking-wider mb-xs">Từ khóa hiện tại</p>
+                      <p className="text-2xl font-black text-on-surface">{wordChainCurrentWord}</p>
+                    </div>
+
+                    <div className="space-y-sm">
+                      <p className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">Chọn từ nối tiếp phù hợp:</p>
+                      <div className="grid grid-cols-2 gap-sm">
+                        {wordChainOptions.map((opt, idx) => (
+                          <button
+                            key={idx}
+                            disabled={wordChainLocked}
+                            onClick={() => {
+                              const words = wordChainCurrentWord.trim().split(/\s+/);
+                              const lastWord = words[words.length - 1].toLowerCase();
+                              const optFirstWord = opt.trim().split(/\s+/)[0].toLowerCase();
+                              
+                              if (optFirstWord === lastWord) {
+                                setWordChainLocked(true);
+                                wordChainChannelRef.current?.send({
+                                  type: 'broadcast',
+                                  event: 'word_chain_submit',
+                                  payload: { word: opt, studentName: currentUser?.full_name }
+                                });
+                              } else {
+                                setWordChainLocked(true);
+                                setTimeout(() => setWordChainLocked(false), 1500);
+                              }
+                            }}
+                            className="p-md text-xs font-bold text-on-surface bg-surface-container border border-outline-variant/30 rounded-xl hover:border-primary/40 active:scale-95 transition-all text-center cursor-pointer"
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-sm border-t border-outline-variant/20">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-on-surface-variant">Chuỗi từ hiện tại:</p>
+                      <div className="flex gap-xs overflow-x-auto py-xs whitespace-nowrap scrollbar-thin">
+                        {wordChainList.map((w, idx) => (
+                          <div key={idx} className="flex items-center gap-xs">
+                            <span className="px-xs py-1.5 text-xs font-extrabold bg-surface-container rounded-lg border border-outline-variant/30 text-on-surface">{w}</span>
+                            {idx < wordChainList.length - 1 && <span className="text-xs text-on-surface-variant">➔</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </Wrap>
           );
@@ -1744,23 +2418,75 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
           </Wrap>
         );
 
-        // ── GAME 15: Review Questions ────────────────────────────────────────────
+        // ── GAME 15: Reflex Rush (Đại chiến phản xạ) ─────────────────────────────
         if (game.id === 15) {
-          const rqs = gc.reviewQuestions || [];
+          const pts = reflexTime === null ? 0 : reflexTime <= 400 ? 15 : reflexTime <= 800 ? 12 : 10;
           return (
             <Wrap>
               <div className="space-y-md">
-                <p className="font-semibold text-on-surface">📚 Ôn tập bài cũ:</p>
-                {rqs.map((q, i) => (
-                  <div key={i} className="space-y-xs">
-                    <p className="text-sm font-semibold text-on-surface">{i + 1}. {q}</p>
-                    <textarea rows={2} placeholder="Câu trả lời của bạn..."
-                      value={reviewAns[i] || ''}
-                      onChange={e => setReviewAns({ ...reviewAns, [i]: e.target.value })}
-                      className="w-full p-sm rounded-xl border border-outline-variant/40 focus:border-primary outline-none text-sm resize-none bg-surface-container-low" />
+                <div className="bg-surface-container p-md rounded-xl text-center border border-outline-variant/30">
+                  <div className="text-5xl mb-xs">⚡</div>
+                  <h3 className="text-lg font-extrabold text-on-surface">Đại chiến phản xạ nhanh</h3>
+                  <p className="text-xs font-medium text-on-surface-variant">Ai có ngón tay nhanh nhất lớp?</p>
+                </div>
+
+                {reflexState === 'idle' && (
+                  <div className="text-center py-lg space-y-xs">
+                    <p className="font-bold text-on-surface text-sm animate-pulse">Đang chờ giảng viên phát lệnh bắt đầu...</p>
+                    <p className="text-xs text-on-surface-variant">Hãy chuẩn bị sẵn sàng ngón tay trên màn hình!</p>
                   </div>
-                ))}
-                <Btn onClick={() => finish(10, Object.entries(reviewAns).map(([idx, ans]) => `Câu ${Number(idx)+1}: ${ans}`).join(' | '))} disabled={rqs.some((_, i) => !reviewAns[i]?.trim())}>✅ Nộp bài ôn tập (+10 điểm)</Btn>
+                )}
+
+                {reflexState === 'countdown' && (
+                  <div className="flex flex-col items-center justify-center py-lg space-y-sm animate-pop-in">
+                    <div className="text-7xl font-black text-primary animate-ping">{reflexCountdown}</div>
+                    <p className="text-sm font-bold text-on-surface-variant">CHUẨN BỊ...</p>
+                  </div>
+                )}
+
+                {reflexState === 'go' && (
+                  <button
+                    onClick={() => {
+                      const elapsed = Date.now() - reflexGoTime;
+                      setReflexTime(elapsed);
+                      setReflexState('clicked');
+                      reflexChannelRef.current?.send({
+                        type: 'broadcast',
+                        event: 'reflex_click',
+                        payload: { userId: currentUser?.id, name: currentUser?.full_name, time: elapsed }
+                      });
+                    }}
+                    className="w-full h-48 rounded-xxl bg-success hover:bg-success/90 active:scale-95 transition-all text-on-success text-3xl font-black flex items-center justify-center shadow-lg border-4 border-success-container cursor-pointer animate-pop-in"
+                  >
+                    🚀 BẤM NGAY!!!
+                  </button>
+                )}
+
+                {reflexState === 'clicked' && (
+                  <div className="space-y-md animate-pop-in">
+                    <div className="text-center py-md bg-secondary-container/20 rounded-xl border border-secondary/20 space-y-xs">
+                      <p className="text-xs font-bold text-secondary uppercase">Thời gian phản xạ của bạn</p>
+                      <p className="text-3xl font-black text-on-surface">{reflexTime} ms</p>
+                      <p className="text-xs font-bold text-success">Bạn nhận được +{pts} điểm!</p>
+                    </div>
+
+                    <div className="space-y-sm">
+                      <p className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">Bảng xếp hạng phản xạ cả lớp:</p>
+                      <div className="space-y-sm max-h-40 overflow-y-auto pr-xs">
+                        {reflexLeaderboard.map((item, idx) => (
+                          <div key={idx} className="flex justify-between items-center p-sm bg-surface-container border border-outline-variant/30 rounded-xl">
+                            <span className="text-xs font-bold text-on-surface">
+                              <span className="text-primary font-extrabold mr-1">#{idx + 1}</span> {item.name}
+                            </span>
+                            <span className="text-xs font-extrabold text-secondary">{item.time} ms</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Btn onClick={() => finish(pts, `Phản xạ: ${reflexTime} ms`)}>🔥 Nhận điểm thưởng</Btn>
+                  </div>
+                )}
               </div>
             </Wrap>
           );

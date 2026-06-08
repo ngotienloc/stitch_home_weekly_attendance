@@ -226,10 +226,19 @@ body {
 .stagger-4 { animation-delay: 0.4s; }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-in-up, .cta-pulse, .float-badge, .shimmer-pill, .animate-pulse, .animate-float, .animate-pop-in, .glint-effect::after, .animate-slide-up {
+  .animate-fade-in-up, .cta-pulse, .float-badge, .shimmer-pill, .animate-pulse, .animate-float, .animate-pop-in, .glint-effect::after, .animate-slide-up, .animate-float-up {
     animation: none !important;
     transition: none !important;
     transform: none !important;
     opacity: 1 !important;
   }
+}
+
+@keyframes float-up {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-400px) scale(1.5); opacity: 0; }
+}
+
+.animate-float-up {
+  animation: float-up 2.5s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
 }
