@@ -135,6 +135,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const [sessionCode, setSessionCode] = useState<string>('');
   const matchmakingChannelRef = useRef<any>(null);
   const gameChannelRef = useRef<any>(null);
+  const groupChannelRef = useRef<any>(null);
 
   // Fetch current profile for matchmaking
   useEffect(() => {
