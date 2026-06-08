@@ -228,6 +228,11 @@ export default function TeacherPage() {
           [userId]: { name, lastSeen: Date.now() }
         }));
       })
+      .on('broadcast', { event: 'pass_bomb' }, ({ payload }: { payload: any }) => {
+        const { newHolderId } = payload;
+        setBombHolderId(newHolderId);
+        setBombTimeLeft(15);
+      })
       .on('broadcast', { event: 'bomb_exploded' }, ({ payload }: { payload: any }) => {
         const { holderId } = payload;
         setBombHolderId(holderId);
@@ -240,6 +245,31 @@ export default function TeacherPage() {
       bombChannelRef.current = null;
     };
   }, [mounted]);
+
+  // Countdown timer on teacher side for Bomb Game
+  useEffect(() => {
+    if (bombStatus !== 'active' || !bombHolderId) return;
+
+    const t = setInterval(() => {
+      setBombTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(t);
+          setBombStatus('exploded');
+          
+          // Broadcast to all that the bomb exploded
+          bombChannelRef.current?.send({
+            type: 'broadcast',
+            event: 'bomb_exploded',
+            payload: { holderId: bombHolderId }
+          });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(t);
+  }, [bombStatus, bombHolderId]);
 
   // Game 2 (Đấu trường sinh tử) teacher realtime effect
   useEffect(() => {
@@ -322,27 +352,26 @@ export default function TeacherPage() {
           const words = word.trim().split(/\s+/);
           const lastWord = words[words.length - 1];
           
-          const itDictionary: Record<string, string[]> = {
-            'mạng': ['mạng máy tính', 'mạng nội bộ', 'mạng không dây', 'mạng diện rộng'],
-            'mềm': ['mềm hệ thống', 'mềm ứng dụng', 'mềm độc hại', 'mềm tự do'],
-            'cứng': ['cứng thiết bị', 'cứng vi mạch', 'cứng đĩa', 'cứng vật lý'],
-            'hệ': ['hệ điều hành', 'hệ quản trị', 'hệ thống mạng', 'hệ phân tán'],
-            'thống': ['thống kê', 'thống nhất', 'thống dữ liệu', 'thống phân tích'],
-            'dữ': ['dữ liệu', 'dữ trữ', 'dữ báo', 'dữ kiện'],
-            'liệu': ['liệu cấu trúc', 'liệu quan hệ', 'liệu đám mây', 'liệu mã hóa'],
-            'lập': ['lập trình', 'lập cấu trúc', 'lập thuật toán', 'lập sơ đồ'],
-            'trình': ['trình duyệt', 'trình biên dịch', 'trình thông dịch', 'trình mã nguồn'],
-            'duyệt': ['duyệt mạng', 'duyệt web', 'duyệt thư mục', 'duyệt dữ liệu'],
-            'tin': ['tin học', 'tin an ninh', 'tin truyền tải', 'tin cơ sở'],
-            'bảo': ['bảo mật', 'bảo trì', 'bảo vệ', 'bảo lưu'],
-            'mật': ['mật mã', 'mật khẩu', 'mật khóa', 'mật thư']
+          const techDesignDictionary: Record<string, string[]> = {
+            'thiết': ['thiết kế kỹ thuật', 'thiết bị công nghệ', 'thiết kế hệ thống', 'thiết kế tối ưu'],
+            'kế': ['kế hoạch thử nghiệm', 'kế hoạch chế tạo', 'kế hoạch thiết kế'],
+            'công': ['công nghệ mới', 'công năng sản phẩm', 'công cụ hỗ trợ', 'công suất vận hành'],
+            'nghệ': ['nghệ thuật tạo hình', 'nghệ thuật thiết kế'],
+            'tư': ['tư duy hệ thống', 'tư duy công nghệ', 'tư duy thiết kế', 'tư duy sáng tạo'],
+            'duy': ['duy trì hệ thống', 'duy trì hoạt động'],
+            'hệ': ['hệ thống công nghệ', 'hệ thống điều khiển', 'hệ sinh thái kỹ thuật', 'hệ thống phản hồi'],
+            'thử': ['thử nghiệm sản phẩm', 'thử nghiệm thực tế', 'thử nghiệm mẫu'],
+            'mẫu': ['mẫu thử nghiệm', 'mẫu sản phẩm', 'mẫu phác thảo', 'mẫu chế tạo'],
+            'vật': ['vật liệu chế tạo', 'vật liệu thông minh', 'vật liệu tái chế'],
+            'giải': ['giải pháp kỹ thuật', 'giải pháp thay thế', 'giải pháp tối ưu'],
+            'tiêu': ['tiêu chí thiết kế', 'tiêu chí đánh giá', 'tiêu chí kỹ thuật']
           };
 
-          const candidates = itDictionary[lastWord.toLowerCase()] || [
-            `${lastWord} dữ liệu`,
+          const candidates = techDesignDictionary[lastWord.toLowerCase()] || [
+            `${lastWord} công nghệ`,
             `${lastWord} hệ thống`,
-            `${lastWord} lập trình`,
-            `${lastWord} phần cứng`
+            `${lastWord} thiết kế`,
+            `${lastWord} kỹ thuật`
           ];
 
           const nextOptions = [...candidates].sort(() => Math.random() - 0.5);
@@ -464,11 +493,11 @@ export default function TeacherPage() {
   };
 
   const BOMB_QUESTIONS = [
-    { q: "Từ khóa 'CSS' viết tắt của cụm từ nào?", opts: ["Cascading Style Sheets", "Creative Style System", "Computer Style Sheets", "Colorful Style System"], ans: 0 },
-    { q: "Thẻ HTML nào dùng để chèn hình ảnh?", opts: ["<picture>", "<img>", "<image>", "<src>"], ans: 1 },
-    { q: "Ngôn ngữ nào chạy trực tiếp trong trình duyệt web?", opts: ["Python", "C++", "Java", "JavaScript"], ans: 3 },
-    { q: "Đâu là một React hook hợp lệ?", opts: ["useFetch", "useState", "useVar", "useReact"], ans: 1 },
-    { q: "Giao thức truyền tải văn bản siêu văn bản an toàn là?", opts: ["HTTP", "FTP", "HTTPS", "SMTP"], ans: 2 }
+    { q: "Bước đầu tiên trong quy trình thiết kế kỹ thuật là gì?", opts: ["Xác định vấn đề và tiêu chí thiết kế", "Chế tạo sản phẩm mẫu (Prototype)", "Thử nghiệm và đánh giá giải pháp", "Đề xuất các phương án thay thế"], ans: 0 },
+    { q: "Trong thiết kế kỹ thuật, 'tiêu chí thiết kế' (Design Criteria) nghĩa là gì?", opts: ["Giới hạn tối đa về thời gian thi công", "Đặc điểm mong muốn mà giải pháp thiết kế cần đạt được", "Quy định pháp lý bắt buộc phải tuân theo", "Ngân sách tối đa của dự án chế tạo"], ans: 1 },
+    { q: "Yếu tố nào sau đây là một 'ràng buộc' (Constraint) điển hình trong thiết kế?", opts: ["Màu sắc ưa thích của kỹ sư", "Hạn chế về ngân sách, vật liệu hoặc thời hạn hoàn thành", "Sự đồng thuận của tất cả thành viên trong nhóm", "Tên thương hiệu dự kiến của sản phẩm"], ans: 1 },
+    { q: "Mục đích chính của việc chế tạo 'sản phẩm mẫu' (Prototype) là gì?", opts: ["Để phân phối bán lẻ cho khách hàng ngay lập tức", "Để thử nghiệm thực tế, phát hiện lỗi và tối ưu hóa thiết kế", "Để lưu trữ trong kho lưu niệm của trường/công ty", "Để đăng ký sở hữu trí tuệ trước khi thử nghiệm"], ans: 1 },
+    { q: "Quy trình thiết kế kỹ thuật có đặc điểm cốt lõi nào sau đây?", opts: ["Chỉ đi theo một chiều thẳng, không bao giờ quay lại bước trước", "Là quy trình lặp (Iterative), liên tục cải tiến sau mỗi vòng đánh giá", "Không cần thực hiện bất kỳ nghiên cứu nền tảng lý thuyết nào", "Chỉ được áp dụng trong lĩnh vực cơ khí và chế tạo máy"], ans: 1 }
   ];
 
   // Game 1: Bomb Challenge control functions
@@ -518,11 +547,11 @@ export default function TeacherPage() {
 
   // Game 2: Battle Royale control functions
   const BATTLE_QUESTIONS = [
-    { q: "HTML viết tắt của cụm từ nào?", opts: ["HyperText Markup Language", "Hyperlink Text Mark Language", "Home Tool Markup Language", "Hyperlink Tool Markup Language"], ans: 0 },
-    { q: "Ngôn ngữ nào định dạng phong cách giao diện?", opts: ["HTML", "SQL", "CSS", "XML"], ans: 2 },
-    { q: "Phương thức HTTP nào dùng để gửi dữ liệu tạo mới?", opts: ["GET", "POST", "PUT", "DELETE"], ans: 1 },
-    { q: "Ai là người sáng lập ra thư viện React?", opts: ["Google", "Facebook", "Microsoft", "Twitter"], ans: 1 },
-    { q: "Thuộc tính CSS nào điều chỉnh màu nền?", opts: ["color", "background-color", "bgcolor", "background-image"], ans: 1 }
+    { q: "Quy trình lặp (Iterative process) trong thiết kế kỹ thuật giúp ích gì nhất?", opts: ["Giảm bớt số lượng kỹ sư tham gia dự án", "Tối ưu hóa thiết kế thông qua cải tiến liên tục sau mỗi vòng thử nghiệm", "Rút ngắn thời gian thiết kế xuống còn một ngày", "Loại bỏ hoàn toàn bước lập kế hoạch ban đầu"], ans: 1 },
+    { q: "'Tư duy hệ thống' (Systems Thinking) trong thiết kế công nghệ yêu cầu kỹ sư làm gì?", opts: ["Chỉ tập trung tối đa vào một chi tiết nhỏ cô lập", "Xem xét sản phẩm như tập hợp các thành phần tương tác chặt chẽ", "Luôn sử dụng máy tính cho mọi công đoạn", "Bỏ qua các yếu tố tác động từ môi trường bên ngoài"], ans: 1 },
+    { q: "Bước nào ngay sau bước 'Đề xuất các giải pháp thay thế'?", opts: ["Xác định vấn đề thiết kế", "Lựa chọn phương án tối ưu nhất dựa trên tiêu chí và ràng buộc", "Chế tạo hàng loạt sản phẩm thương mại", "Viết tài liệu hướng dẫn sử dụng sản phẩm"], ans: 1 },
+    { q: "Trong sơ đồ khối hệ thống công nghệ, 'Phản hồi' (Feedback) có vai trò gì?", opts: ["Chuyển đổi năng lượng đầu vào thành đầu ra", "Giúp hệ thống tự điều chỉnh và duy trì sự ổn định dựa trên đầu ra", "Tiêu hao năng lượng dư thừa của hệ thống", "Cung cấp nguồn nguyên liệu thô ban đầu"], ans: 1 },
+    { q: "Thiết kế công nghiệp (Industrial Design) chú trọng nhất vào khía cạnh nào?", opts: ["Độ bền kéo và ứng suất của khung kim loại bên trong", "Tính thẩm mỹ, trải nghiệm người dùng và công năng sử dụng thực tế", "Giá thành nguyên liệu rẻ nhất có thể", "Phương thức đóng gói vận chuyển bằng container"], ans: 1 }
   ];
 
   const startBattleRoyale = () => {
@@ -651,8 +680,8 @@ export default function TeacherPage() {
 
   // Game 9: Word Chain control functions
   const startWordChain = () => {
-    setWordChainList(['phần mềm']);
-    setWordChainCurrentWord('phần mềm');
+    setWordChainList(['thiết kế']);
+    setWordChainCurrentWord('thiết kế');
     setWordChainLastWinner(null);
 
     const channel = supabase.channel('word_chain_global');
@@ -660,8 +689,8 @@ export default function TeacherPage() {
       type: 'broadcast',
       event: 'start_word_chain',
       payload: {
-        word: 'phần mềm',
-        options: ['mềm hệ thống', 'mềm ứng dụng', 'mềm độc hại', 'mềm tự do']
+        word: 'thiết kế',
+        options: ['kế hoạch thử nghiệm', 'kế hoạch chế tạo', 'kế hoạch thiết kế']
       }
     });
   };

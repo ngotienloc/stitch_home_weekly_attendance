@@ -78,11 +78,11 @@ const DUEL_QUESTIONS = [
 ];
 
 const BOMB_QUESTIONS = [
-  { q: "Từ khóa 'CSS' viết tắt của cụm từ nào?", opts: ["Cascading Style Sheets", "Creative Style System", "Computer Style Sheets", "Colorful Style System"], ans: 0 },
-  { q: "Thẻ HTML nào dùng để chèn hình ảnh?", opts: ["<picture>", "<img>", "<image>", "<src>"], ans: 1 },
-  { q: "Ngôn ngữ nào chạy trực tiếp trong trình duyệt web?", opts: ["Python", "C++", "Java", "JavaScript"], ans: 3 },
-  { q: "Đâu là một React hook hợp lệ?", opts: ["useFetch", "useState", "useVar", "useReact"], ans: 1 },
-  { q: "Giao thức truyền tải văn bản siêu văn bản an toàn là?", opts: ["HTTP", "FTP", "HTTPS", "SMTP"], ans: 2 }
+  { q: "Bước đầu tiên trong quy trình thiết kế kỹ thuật là gì?", opts: ["Xác định vấn đề và tiêu chí thiết kế", "Chế tạo sản phẩm mẫu (Prototype)", "Thử nghiệm và đánh giá giải pháp", "Đề xuất các phương án thay thế"], ans: 0 },
+  { q: "Trong thiết kế kỹ thuật, 'tiêu chí thiết kế' (Design Criteria) nghĩa là gì?", opts: ["Giới hạn tối đa về thời gian thi công", "Đặc điểm mong muốn mà giải pháp thiết kế cần đạt được", "Quy định pháp lý bắt buộc phải tuân theo", "Ngân sách tối đa của dự án chế tạo"], ans: 1 },
+  { q: "Yếu tố nào sau đây là một 'ràng buộc' (Constraint) điển hình trong thiết kế?", opts: ["Màu sắc ưa thích của kỹ sư", "Hạn chế về ngân sách, vật liệu hoặc thời hạn hoàn thành", "Sự đồng thuận của tất cả thành viên trong nhóm", "Tên thương hiệu dự kiến của sản phẩm"], ans: 1 },
+  { q: "Mục đích chính của việc chế tạo 'sản phẩm mẫu' (Prototype) là gì?", opts: ["Để phân phối bán lẻ cho khách hàng ngay lập tức", "Để thử nghiệm thực tế, phát hiện lỗi và tối ưu hóa thiết kế", "Để lưu trữ trong kho lưu niệm của trường/công ty", "Để đăng ký sở hữu trí tuệ trước khi thử nghiệm"], ans: 1 },
+  { q: "Quy trình thiết kế kỹ thuật có đặc điểm cốt lõi nào sau đây?", opts: ["Chỉ đi theo một chiều thẳng, không bao giờ quay lại bước trước", "Là quy trình lặp (Iterative), liên tục cải tiến sau mỗi vòng đánh giá", "Không cần thực hiện bất kỳ nghiên cứu nền tảng lý thuyết nào", "Chỉ được áp dụng trong lĩnh vực cơ khí và chế tạo máy"], ans: 1 }
 ];
 
 export default function GameModal({ game, weekNumber, streak, onComplete, onClose }: Props) {
@@ -639,7 +639,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
       bombChannelRef.current = null;
       clearInterval(pingInterval);
     };
-  }, [game.id, currentUser, bombActiveUsers]);
+  }, [game.id, currentUser?.id, currentUser?.full_name]);
 
   // Countdown timer for Game 1 bomb holder
   useEffect(() => {
@@ -664,7 +664,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     }, 1000);
 
     return () => clearInterval(t);
-  }, [game.id, bombHolderId, bombCompleted, currentUser]);
+  }, [game.id, bombHolderId, bombCompleted, currentUser?.id]);
 
   // Game 2 (Đấu trường sinh tử) student realtime effect
   useEffect(() => {
@@ -1218,6 +1218,16 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
         if (game.id === 1) {
           const isHolder = bombHolderId === currentUser?.id;
           const isLocked = Date.now() < bombLockedUntil;
+          
+          let displayStatusText = 'Đang đợi giảng viên kích hoạt bom...';
+          if (bombExploded) {
+            const holderName = bombHolderId === currentUser?.id ? 'BẠN' : (bombActiveUsers[bombHolderId || '']?.name || 'một bạn khác');
+            displayStatusText = `💥 Quả bom đã nổ tung ở chỗ ${holderName}!`;
+          } else if (bombHolderId) {
+            const holderName = bombHolderId === currentUser?.id ? 'BẠN' : (bombActiveUsers[bombHolderId]?.name || 'một bạn khác');
+            displayStatusText = bombHolderId === currentUser?.id ? '💣 BẠN ĐANG GIỮ BOM! Trả lời ngay!' : `💣 Quả bom đang ở chỗ ${holderName}`;
+          }
+
           return (
             <Wrap>
               <div className="space-y-md">
@@ -1230,7 +1240,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
                     {bombExploded ? '💥' : isHolder ? '💣' : '⏳'}
                   </div>
                   <h3 className="text-xl font-extrabold text-on-surface">Đại chiến bom hẹn giờ</h3>
-                  <p className="text-xs font-semibold text-on-surface-variant mt-1">{bombStatusText}</p>
+                  <p className="text-xs font-semibold text-on-surface-variant mt-1">{displayStatusText}</p>
 
                   {bombHolderId && !bombExploded && (
                     <div className="mt-md flex flex-col items-center justify-center">
