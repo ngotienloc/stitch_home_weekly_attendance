@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import type { Game } from '@/utils/supabase/client';
-import { getGameContent } from '@/utils/supabase/client';
+import { getGameContent, createClient, isMockEnabled } from '@/utils/supabase/client';
 
 interface Props {
   game: Game;
@@ -78,6 +78,7 @@ const DUEL_QUESTIONS = [
 ];
 
 export default function GameModal({ game, weekNumber, streak, onComplete, onClose }: Props) {
+  const supabase = createClient();
   const gc = getGameContent(weekNumber);
   const [done, setDone] = useState(false);
   const [pts, setPts] = useState(0);
@@ -110,6 +111,41 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const duelIntervalRef = useRef<any>(null);
   const opponentTimeoutRef = useRef<any>(null);
 
+  // Matchmaking states & references
+  const [currentUser, setCurrentUser] = useState<{ id: string; full_name: string } | null>(null);
+  const [searchTimer, setSearchTimer] = useState<number>(0);
+  const [sessionCode, setSessionCode] = useState<string>('');
+  const matchmakingChannelRef = useRef<any>(null);
+  const gameChannelRef = useRef<any>(null);
+
+  // Fetch current profile for matchmaking
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
+      if (user) {
+        if (isMockEnabled) {
+          const profiles = JSON.parse(localStorage.getItem('mock_profiles') || '[]');
+          const profile = profiles.find((p: any) => p.id === user.id);
+          setCurrentUser({
+            id: user.id,
+            full_name: profile?.full_name || 'Học viên Mock'
+          });
+        } else {
+          supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single()
+            .then(({ data }: { data: any }) => {
+              setCurrentUser({
+                id: user.id,
+                full_name: data?.full_name || 'Học viên ẩn danh'
+              });
+            });
+        }
+      }
+    });
+  }, []);
+
   // Game 6 (Raise Hand) start time
   const handRaiseStartTimeRef = useRef<number | null>(null);
 
@@ -139,22 +175,131 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   useEffect(() => {
     if (game.id === 10) {
       setDuelStep('searching');
-      const names = ['Trần Thị Lan', 'Nguyễn Hoàng Nam', 'Lê Hải Yến', 'Phạm Gia Bảo', 'Đỗ Minh Đức', 'Nguyễn Quỳnh Anh'];
-      const randomOpponent = names[Math.floor(Math.random() * names.length)];
-      setDuelOpponent(randomOpponent);
-      
-      const timer = setTimeout(() => {
-        setDuelStep('playing');
-        setDuelQuestionIdx(0);
-        setDuelTimer(10);
-        setDuelPlayerAns(null);
-        setDuelOpponentAns(null);
-        setDuelScores({ player: 0, opponent: 0 });
-      }, 2500); // 2.5s radar search animation
-      
-      return () => clearTimeout(timer);
+      setSearchTimer(0);
+      setDuelQuestionIdx(0);
+      setDuelTimer(10);
+      setDuelPlayerAns(null);
+      setDuelOpponentAns(null);
+      setDuelScores({ player: 0, opponent: 0 });
+      setSessionCode('');
     }
   }, [game.id]);
+
+  // Game 10: Matchmaking Lobby Channel Subscription
+  useEffect(() => {
+    if (game.id !== 10 || duelStep !== 'searching' || !currentUser) return;
+
+    const channelName = isMockEnabled ? 'mock_duel_matchmaking' : 'real_duel_matchmaking';
+    const channel = supabase.channel(channelName, {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+
+    matchmakingChannelRef.current = channel;
+
+    const startRealMatch = (oppName: string, session: string) => {
+      setSessionCode(session);
+      setDuelOpponent(oppName);
+      setDuelStep('playing');
+      setDuelQuestionIdx(0);
+      setDuelTimer(10);
+      setDuelPlayerAns(null);
+      setDuelOpponentAns(null);
+      setDuelScores({ player: 0, opponent: 0 });
+    };
+
+    channel
+      .on('broadcast', { event: 'ping_search' }, ({ payload }: { payload: any }) => {
+        const { userId: oppId, name: oppName } = payload;
+        if (oppId === currentUser.id) return;
+
+        // Deterministic matching: lower UUID waits, higher UUID initiates request
+        if (currentUser.id > oppId) {
+          channel.send({
+            type: 'broadcast',
+            event: 'match_request',
+            payload: { hostId: oppId, guestId: currentUser.id, guestName: currentUser.full_name }
+          });
+        }
+      })
+      .on('broadcast', { event: 'match_request' }, ({ payload }: { payload: any }) => {
+        const { hostId, guestId, guestName } = payload;
+        if (hostId === currentUser.id) {
+          const session = `${hostId}-${guestId}-${Date.now()}`;
+          channel.send({
+            type: 'broadcast',
+            event: 'match_accept',
+            payload: { hostId, guestId, sessionId: session, hostName: currentUser.full_name }
+          });
+          
+          startRealMatch(guestName, session);
+        }
+      })
+      .on('broadcast', { event: 'match_accept' }, ({ payload }: { payload: any }) => {
+        const { hostId, guestId, sessionId, hostName } = payload;
+        if (guestId === currentUser.id) {
+          startRealMatch(hostName, sessionId);
+        }
+      })
+      .subscribe();
+
+    const pingInterval = setInterval(() => {
+      channel.send({
+        type: 'broadcast',
+        event: 'ping_search',
+        payload: { userId: currentUser.id, name: currentUser.full_name }
+      });
+    }, 1500);
+
+    return () => {
+      clearInterval(pingInterval);
+      if (matchmakingChannelRef.current) {
+        supabase.removeChannel(matchmakingChannelRef.current);
+        matchmakingChannelRef.current = null;
+      }
+    };
+  }, [game.id, duelStep, currentUser]);
+
+  // Game 10: Searching Timer
+  useEffect(() => {
+    if (game.id === 10 && duelStep === 'searching') {
+      const interval = setInterval(() => {
+        setSearchTimer(t => t + 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [game.id, duelStep]);
+
+  // Game 10: P2P Match Session Channel Subscription
+  useEffect(() => {
+    if (game.id !== 10 || duelStep !== 'playing' || !sessionCode || sessionCode === 'bot' || !currentUser) return;
+
+    const channelName = isMockEnabled ? `mock_duel_session_${sessionCode}` : `real_duel_session_${sessionCode}`;
+    const channel = supabase.channel(channelName, {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+
+    gameChannelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'submit_answer' }, ({ payload }: { payload: any }) => {
+        const { qIdx, ans, timeSpent } = payload;
+        if (qIdx === duelQuestionIdx) {
+          setDuelOpponentAns({ ans, timeSpent });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      if (gameChannelRef.current) {
+        supabase.removeChannel(gameChannelRef.current);
+        gameChannelRef.current = null;
+      }
+    };
+  }, [game.id, duelStep, sessionCode, duelQuestionIdx, currentUser]);
 
   // Game 10: Timer and Opponent AI loop
   useEffect(() => {
@@ -173,26 +318,28 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
         });
       }, 1000);
 
-      // AI opponent picks an answer between 2s and 7s
-      const opponentDelay = Math.random() * 5000 + 2000;
-      opponentTimeoutRef.current = setTimeout(() => {
-        const currentQ = DUEL_QUESTIONS[duelQuestionIdx];
-        const isCorrect = Math.random() < 0.75; // 75% accuracy
-        const chosenAns = isCorrect ? currentQ.ans : (currentQ.ans + 1) % 4;
-        const timeSpent = parseFloat((opponentDelay / 1000).toFixed(2));
-        
-        setDuelOpponentAns({
-          ans: chosenAns,
-          timeSpent
-        });
-      }, opponentDelay);
+      // AI opponent picks an answer ONLY if matched with bot
+      if (!sessionCode || sessionCode === 'bot' || duelOpponent === 'Hệ thống (Bot)') {
+        const opponentDelay = Math.random() * 5000 + 2000;
+        opponentTimeoutRef.current = setTimeout(() => {
+          const currentQ = DUEL_QUESTIONS[duelQuestionIdx];
+          const isCorrect = Math.random() < 0.75; // 75% accuracy
+          const chosenAns = isCorrect ? currentQ.ans : (currentQ.ans + 1) % 4;
+          const timeSpent = parseFloat((opponentDelay / 1000).toFixed(2));
+          
+          setDuelOpponentAns({
+            ans: chosenAns,
+            timeSpent
+          });
+        }, opponentDelay);
+      }
     }
 
     return () => {
       if (duelIntervalRef.current) clearInterval(duelIntervalRef.current);
       if (opponentTimeoutRef.current) clearTimeout(opponentTimeoutRef.current);
     };
-  }, [game.id, duelStep, duelQuestionIdx]);
+  }, [game.id, duelStep, duelQuestionIdx, sessionCode, duelOpponent]);
 
   // Game 10: Watch both answers to proceed
   useEffect(() => {
@@ -210,6 +357,15 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
       ans: optionIdx,
       timeSpent
     });
+
+    // Broadcast our answer to the opponent!
+    if (sessionCode && sessionCode !== 'bot' && gameChannelRef.current) {
+      gameChannelRef.current.send({
+        type: 'broadcast',
+        event: 'submit_answer',
+        payload: { qIdx: duelQuestionIdx, ans: optionIdx, timeSpent }
+      });
+    }
   };
 
   const handleDuelRoundEnd = (isTimeout: boolean) => {
@@ -217,6 +373,15 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     if (isTimeout && pAns === null) {
       pAns = { ans: -1, timeSpent: 10 };
       setDuelPlayerAns(pAns);
+
+      // Broadcast timeout to opponent
+      if (sessionCode && sessionCode !== 'bot' && gameChannelRef.current) {
+        gameChannelRef.current.send({
+          type: 'broadcast',
+          event: 'submit_answer',
+          payload: { qIdx: duelQuestionIdx, ans: -1, timeSpent: 10 }
+        });
+      }
     }
     
     let oAns = duelOpponentAns;
@@ -594,9 +759,35 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
                     <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-primary/5 to-primary/20 rounded-full animate-spin" style={{ animationDuration: '3s' }} />
                     <span className="material-symbols-outlined text-4xl text-primary animate-pulse">radar</span>
                   </div>
-                  <div className="space-y-sm">
-                    <h3 className="font-extrabold text-lg text-on-surface">Đang tìm kiếm đối thủ...</h3>
-                    <p className="text-xs text-on-surface-variant font-medium animate-pulse">Kết nối với các sinh viên đang online...</p>
+                  <div className="space-y-sm flex flex-col items-center">
+                    <h3 className="font-extrabold text-lg text-on-surface">Đang tìm đối thủ...</h3>
+                    <p className="text-xs text-on-surface-variant font-medium animate-pulse">Đang kết nối với các bạn học sinh online...</p>
+                    
+                    {/* Fallback to Bot match if waiting too long */}
+                    <div className="pt-md w-full max-w-[240px] space-y-xs">
+                      <p className="text-[10px] text-on-surface-variant font-bold">
+                        ⏱️ Đã tìm kiếm: <span className="text-primary">{searchTimer}s</span>
+                      </p>
+                      
+                      {searchTimer >= 6 && (
+                        <button
+                          onClick={() => {
+                            setSessionCode('bot');
+                            setDuelOpponent('Hệ thống (Bot)');
+                            setDuelStep('playing');
+                            setDuelQuestionIdx(0);
+                            setDuelTimer(10);
+                            setDuelPlayerAns(null);
+                            setDuelOpponentAns(null);
+                            setDuelScores({ player: 0, opponent: 0 });
+                          }}
+                          className="w-full py-sm bg-secondary text-on-secondary font-black text-xs rounded-xl shadow-md active:scale-95 transition-all cursor-pointer hover:bg-secondary/90 flex items-center justify-center gap-1 animate-fade-in-up mt-sm"
+                        >
+                          <span className="material-symbols-outlined text-sm">smart_toy</span>
+                          Thách đấu với Bot (AI)
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
