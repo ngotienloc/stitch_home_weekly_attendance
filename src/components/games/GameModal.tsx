@@ -59,6 +59,24 @@ const Btn = ({ onClick, children, disabled = false, cls = '' }: any) => (
   </button>
 );
 
+const DUEL_QUESTIONS = [
+  {
+    q: "Đâu là giai đoạn đầu tiên trong quy trình Design Thinking?",
+    opts: ["Xác định vấn đề (Define)", "Thấu cảm (Empathize)", "Thử nghiệm (Test)", "Tạo ý tưởng (Ideate)"],
+    ans: 1
+  },
+  {
+    q: "Mục đích chính của việc làm Nguyên mẫu (Prototype) là gì?",
+    opts: ["Để bán ra thị trường", "Để giới thiệu sản phẩm", "Để thử nghiệm và cải tiến ý tưởng", "Để tiết kiệm chi phí"],
+    ans: 2
+  },
+  {
+    q: "Yếu tố nào dưới đây KHÔNG thuộc mô hình 4C trong sáng tạo?",
+    opts: ["Critical Thinking (Tư duy phản biện)", "Communication (Giao tiếp)", "Calculation (Tính toán)", "Creativity (Sáng tạo)"],
+    ans: 2
+  }
+];
+
 export default function GameModal({ game, weekNumber, streak, onComplete, onClose }: Props) {
   const gc = getGameContent(weekNumber);
   const [done, setDone] = useState(false);
@@ -80,6 +98,28 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const [qrError, setQrError] = useState<string | null>(null);
   const html5QrCodeRef = useRef<any>(null);
 
+  // Game 10 (1v1 Duel) state
+  const [duelStep, setDuelStep] = useState<'idle' | 'searching' | 'playing' | 'round_result' | 'finished'>('idle');
+  const [duelOpponent, setDuelOpponent] = useState<string>('');
+  const [duelQuestionIdx, setDuelQuestionIdx] = useState<number>(0);
+  const [duelTimer, setDuelTimer] = useState<number>(10);
+  const [duelPlayerAns, setDuelPlayerAns] = useState<{ ans: number; timeSpent: number } | null>(null);
+  const [duelOpponentAns, setDuelOpponentAns] = useState<{ ans: number; timeSpent: number } | null>(null);
+  const [duelScores, setDuelScores] = useState<{ player: number; opponent: number }>({ player: 0, opponent: 0 });
+  const [duelRoundPoints, setDuelRoundPoints] = useState<{ player: number; opponent: number }>({ player: 0, opponent: 0 });
+  const duelIntervalRef = useRef<any>(null);
+  const opponentTimeoutRef = useRef<any>(null);
+
+  // Game 6 (Raise Hand) start time
+  const handRaiseStartTimeRef = useRef<number | null>(null);
+
+  // Game 6: Record modal open time
+  useEffect(() => {
+    if (game.id === 6) {
+      handRaiseStartTimeRef.current = Date.now();
+    }
+  }, [game.id]);
+
   const finish = (p: number, inputVal?: string | null) => {
     setPts(p);
     setDone(true);
@@ -95,14 +135,130 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     return () => clearInterval(timerRef.current);
   }, [game.id, done]);
 
-  // Game 10: find opponent
+  // Game 10: 1v1 duel matching and lifecycle
   useEffect(() => {
     if (game.id === 10) {
-      setSearching(true);
-      const names = ['Trần Thị Lan', 'Nguyễn Hoàng Nam', 'Lê Hải Yến', 'Phạm Gia Bảo'];
-      setTimeout(() => { setOpponent(names[Math.floor(Math.random() * names.length)]); setSearching(false); }, 1800);
+      setDuelStep('searching');
+      const names = ['Trần Thị Lan', 'Nguyễn Hoàng Nam', 'Lê Hải Yến', 'Phạm Gia Bảo', 'Đỗ Minh Đức', 'Nguyễn Quỳnh Anh'];
+      const randomOpponent = names[Math.floor(Math.random() * names.length)];
+      setDuelOpponent(randomOpponent);
+      
+      const timer = setTimeout(() => {
+        setDuelStep('playing');
+        setDuelQuestionIdx(0);
+        setDuelTimer(10);
+        setDuelPlayerAns(null);
+        setDuelOpponentAns(null);
+        setDuelScores({ player: 0, opponent: 0 });
+      }, 2500); // 2.5s radar search animation
+      
+      return () => clearTimeout(timer);
     }
   }, [game.id]);
+
+  // Game 10: Timer and Opponent AI loop
+  useEffect(() => {
+    if (game.id === 10 && duelStep === 'playing') {
+      if (duelIntervalRef.current) clearInterval(duelIntervalRef.current);
+      setDuelTimer(10);
+      
+      duelIntervalRef.current = setInterval(() => {
+        setDuelTimer((prev) => {
+          if (prev <= 1) {
+            clearInterval(duelIntervalRef.current);
+            handleDuelRoundEnd(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // AI opponent picks an answer between 2s and 7s
+      const opponentDelay = Math.random() * 5000 + 2000;
+      opponentTimeoutRef.current = setTimeout(() => {
+        const currentQ = DUEL_QUESTIONS[duelQuestionIdx];
+        const isCorrect = Math.random() < 0.75; // 75% accuracy
+        const chosenAns = isCorrect ? currentQ.ans : (currentQ.ans + 1) % 4;
+        const timeSpent = parseFloat((opponentDelay / 1000).toFixed(2));
+        
+        setDuelOpponentAns({
+          ans: chosenAns,
+          timeSpent
+        });
+      }, opponentDelay);
+    }
+
+    return () => {
+      if (duelIntervalRef.current) clearInterval(duelIntervalRef.current);
+      if (opponentTimeoutRef.current) clearTimeout(opponentTimeoutRef.current);
+    };
+  }, [game.id, duelStep, duelQuestionIdx]);
+
+  // Game 10: Watch both answers to proceed
+  useEffect(() => {
+    if (game.id === 10 && duelStep === 'playing' && duelPlayerAns !== null && duelOpponentAns !== null) {
+      if (duelIntervalRef.current) clearInterval(duelIntervalRef.current);
+      if (opponentTimeoutRef.current) clearTimeout(opponentTimeoutRef.current);
+      handleDuelRoundEnd(false);
+    }
+  }, [game.id, duelStep, duelPlayerAns, duelOpponentAns]);
+
+  const handleDuelPlayerAnswer = (optionIdx: number) => {
+    if (duelPlayerAns !== null || duelStep !== 'playing') return;
+    const timeSpent = parseFloat((10 - duelTimer).toFixed(2));
+    setDuelPlayerAns({
+      ans: optionIdx,
+      timeSpent
+    });
+  };
+
+  const handleDuelRoundEnd = (isTimeout: boolean) => {
+    let pAns = duelPlayerAns;
+    if (isTimeout && pAns === null) {
+      pAns = { ans: -1, timeSpent: 10 };
+      setDuelPlayerAns(pAns);
+    }
+    
+    let oAns = duelOpponentAns;
+    if (isTimeout && oAns === null) {
+      oAns = { ans: -1, timeSpent: 10 };
+      setDuelOpponentAns(oAns);
+    }
+
+    const currentQ = DUEL_QUESTIONS[duelQuestionIdx];
+    const playerCorrect = pAns ? pAns.ans === currentQ.ans : false;
+    const opponentCorrect = oAns ? oAns.ans === currentQ.ans : false;
+
+    let pPoints = playerCorrect ? 10 : 0;
+    let oPoints = opponentCorrect ? 10 : 0;
+
+    if (playerCorrect && opponentCorrect && pAns && oAns) {
+      if (pAns.timeSpent < oAns.timeSpent) {
+        pPoints += 5;
+      } else if (oAns.timeSpent < pAns.timeSpent) {
+        oPoints += 5;
+      }
+    }
+
+    setDuelRoundPoints({ player: pPoints, opponent: oPoints });
+    setDuelScores((prev) => ({
+      player: prev.player + pPoints,
+      opponent: prev.opponent + oPoints
+    }));
+
+    setDuelStep('round_result');
+
+    setTimeout(() => {
+      if (duelQuestionIdx + 1 < DUEL_QUESTIONS.length) {
+        setDuelQuestionIdx((prev) => prev + 1);
+        setDuelPlayerAns(null);
+        setDuelOpponentAns(null);
+        setDuelStep('playing');
+      } else {
+        setDuelStep('finished');
+      }
+    }, 2800);
+  };
 
   // Game 3: QR scanner lifecycle
   useEffect(() => {
@@ -341,7 +497,12 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
           <Wrap>
             <div className="text-center space-y-lg">
               <p className="text-sm text-on-surface-variant">Giơ tay để trả lời câu hỏi giảng viên!</p>
-              <button onClick={() => { const r = Math.floor(Math.random() * 8) + 1; finish(r <= 3 ? 15 : 10); }}
+              <button onClick={() => {
+                const elapsed = handRaiseStartTimeRef.current
+                  ? (Date.now() - handRaiseStartTimeRef.current) / 1000
+                  : 1.0;
+                finish(10, `Giơ tay lúc ${elapsed.toFixed(2)}s`);
+              }}
                 className="w-32 h-32 mx-auto rounded-full bg-secondary-container text-7xl flex items-center justify-center active:scale-90 hover:scale-105 transition-all shadow-xl cursor-pointer border-4 border-secondary">
                 ✋
               </button>
@@ -420,31 +581,214 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
         }
 
         // ── GAME 10: 1v1 Duel ────────────────────────────────────────────────────
-        if (game.id === 10) return (
-          <Wrap>
-            {searching ? (
-              <div className="text-center space-y-md py-lg">
-                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="font-semibold text-on-surface">Đang tìm đối thủ...</p>
-              </div>
-            ) : (
-              <div className="space-y-md">
-                <div className="flex items-center justify-between bg-primary-container/20 rounded-xl p-sm">
-                  <span className="text-sm font-bold text-primary">Bạn</span>
-                  <span className="font-extrabold text-on-surface">VS</span>
-                  <span className="text-sm font-bold text-secondary">{opponent}</span>
+        if (game.id === 10) {
+          const currentQ = DUEL_QUESTIONS[duelQuestionIdx];
+          return (
+            <Wrap>
+              {/* searching step */}
+              {duelStep === 'searching' && (
+                <div className="text-center space-y-lg py-xl flex flex-col items-center">
+                  <div className="relative w-36 h-36 border-2 border-primary/30 rounded-full flex items-center justify-center animate-pulse">
+                    <div className="absolute inset-2 border border-primary/20 rounded-full" />
+                    <div className="absolute inset-8 border border-primary/10 rounded-full" />
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-primary/5 to-primary/20 rounded-full animate-spin" style={{ animationDuration: '3s' }} />
+                    <span className="material-symbols-outlined text-4xl text-primary animate-pulse">radar</span>
+                  </div>
+                  <div className="space-y-sm">
+                    <h3 className="font-extrabold text-lg text-on-surface">Đang tìm kiếm đối thủ...</h3>
+                    <p className="text-xs text-on-surface-variant font-medium animate-pulse">Kết nối với các sinh viên đang online...</p>
+                  </div>
                 </div>
-                <div className="bg-surface-container rounded-xl p-md">
-                  <p className="text-xs font-bold text-on-surface-variant mb-xs">Câu hỏi thách đấu:</p>
-                  <p className="font-semibold text-on-surface text-sm">{gc.duelQuestion}</p>
+              )}
+
+              {/* playing or round_result steps */}
+              {(duelStep === 'playing' || duelStep === 'round_result') && (
+                <div className="space-y-md">
+                  {/* Live Head-to-Head header */}
+                  <div className="flex items-center justify-between bg-surface-container-high rounded-2xl p-md border border-outline-variant/10 shadow-sm">
+                    {/* Player info */}
+                    <div className="flex items-center gap-sm flex-1">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm border-2 border-primary/30 shadow-sm">
+                        Bạn
+                      </div>
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-on-surface">Bạn</p>
+                        <p className="text-lg font-black text-primary font-display">{duelScores.player}đ</p>
+                        {duelPlayerAns ? (
+                          <span className="text-[10px] text-green-600 font-bold bg-green-500/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                            ⚡ {duelPlayerAns.timeSpent}s
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-on-surface-variant animate-pulse">Đang suy nghĩ...</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* VS Divider */}
+                    <div className="px-md flex flex-col items-center justify-center">
+                      <span className="text-xs font-black text-outline bg-white px-2 py-1 rounded-full border border-outline-variant/20 shadow-sm">VS</span>
+                    </div>
+
+                    {/* Opponent info */}
+                    <div className="flex items-center gap-sm flex-1 flex-row-reverse text-right">
+                      <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-sm border-2 border-secondary/30 shadow-sm">
+                        {duelOpponent.slice(0, 2)}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-on-surface truncate max-w-[80px]">{duelOpponent}</p>
+                        <p className="text-lg font-black text-secondary font-display">{duelScores.opponent}đ</p>
+                        {duelOpponentAns ? (
+                          <span className="text-[10px] text-green-600 font-bold bg-green-500/10 px-1.5 py-0.5 rounded flex items-center gap-0.5 ml-auto w-max">
+                            ⚡ {duelOpponentAns.timeSpent}s
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-on-surface-variant animate-pulse">Đang suy nghĩ...</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress & Question */}
+                  <div className="bg-surface-container p-md rounded-2xl border border-outline-variant/10 relative overflow-hidden">
+                    {/* Timer progress bar */}
+                    <div className="absolute bottom-0 left-0 h-1 bg-outline-variant/20 w-full animate-pulse">
+                      <div
+                        className={`h-full transition-all duration-1000 ${
+                          duelTimer > 5 ? 'bg-primary' : duelTimer > 2 ? 'bg-warning' : 'bg-error animate-pulse'
+                        }`}
+                        style={{ width: `${(duelTimer / 10) * 100}%` }}
+                      />
+                    </div>
+
+                    <div className="flex justify-between items-center mb-sm">
+                      <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                        Câu hỏi {duelQuestionIdx + 1}/3
+                      </span>
+                      <span className="text-xs font-black text-on-surface flex items-center gap-0.5">
+                        ⏱️ {duelTimer}s
+                      </span>
+                    </div>
+                    <p className="font-bold text-on-surface text-sm leading-snug">{currentQ.q}</p>
+                  </div>
+
+                  {/* Option Buttons */}
+                  <div className="grid grid-cols-1 gap-sm">
+                    {currentQ.opts.map((opt, oIdx) => {
+                      const isSelected = duelPlayerAns?.ans === oIdx;
+                      const isCorrectAns = currentQ.ans === oIdx;
+                      
+                      let btnStyle = "bg-white text-on-surface border-outline-variant/30 hover:bg-surface-container-low";
+                      if (duelStep === 'round_result') {
+                        if (isCorrectAns) {
+                          btnStyle = "bg-green-500/15 text-green-700 border-green-500/40 font-bold";
+                        } else if (isSelected) {
+                          btnStyle = "bg-red-500/15 text-red-700 border-red-500/40";
+                        } else {
+                          btnStyle = "bg-white text-on-surface/50 border-outline-variant/10 opacity-60";
+                        }
+                      } else if (duelPlayerAns !== null) {
+                        btnStyle = isSelected
+                          ? "bg-primary/10 text-primary border-primary/40 font-bold"
+                          : "bg-white text-on-surface/50 border-outline-variant/10 opacity-60";
+                      }
+
+                      return (
+                        <button
+                          key={oIdx}
+                          disabled={duelPlayerAns !== null || duelStep !== 'playing'}
+                          onClick={() => handleDuelPlayerAnswer(oIdx)}
+                          className={`p-md rounded-xl border text-left text-xs transition-all duration-200 flex items-center justify-between ${btnStyle} ${
+                            duelPlayerAns === null && duelStep === 'playing' ? 'active:scale-98 cursor-pointer' : ''
+                          }`}
+                        >
+                          <span>{opt}</span>
+                          {duelStep === 'round_result' && (
+                            <div className="flex gap-xs">
+                              {isSelected && (
+                                <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${isCorrectAns ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                                  Bạn
+                                </span>
+                              )}
+                              {duelOpponentAns?.ans === oIdx && (
+                                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-secondary text-white">
+                                  {duelOpponent.slice(0, 3)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Live feedback during round results */}
+                  {duelStep === 'round_result' && (
+                    <div className="text-center p-sm bg-primary/5 rounded-xl border border-primary/10 animate-pulse text-xs font-bold text-primary">
+                      {(() => {
+                        const pCorrect = duelPlayerAns?.ans === currentQ.ans;
+                        const oCorrect = duelOpponentAns?.ans === currentQ.ans;
+                        if (pCorrect && oCorrect) {
+                          return duelPlayerAns!.timeSpent < duelOpponentAns!.timeSpent
+                            ? "⚡ Bạn nhanh hơn! +5đ thưởng tốc độ!"
+                            : `⚡ ${duelOpponent} nhanh hơn!`;
+                        }
+                        if (pCorrect) return "🎉 Bạn trả lời đúng!";
+                        if (oCorrect) return `😢 ${duelOpponent} trả lời đúng!`;
+                        return "❌ Cả hai đều trả lời sai!";
+                      })()}
+                    </div>
+                  )}
                 </div>
-                <textarea value={text} onChange={e => setText(e.target.value)} rows={3} placeholder="Trả lời của bạn..."
-                  className="w-full p-md rounded-xl border border-outline-variant/40 focus:border-primary outline-none text-sm resize-none bg-surface-container-low" />
-                <Btn disabled={text.trim().length < 3} onClick={() => finish(text.length > 30 ? 25 : 15)}>⚔️ Gửi câu trả lời!</Btn>
-              </div>
-            )}
-          </Wrap>
-        );
+              )}
+
+              {/* finished step */}
+              {duelStep === 'finished' && (
+                <div className="space-y-lg text-center flex flex-col items-center">
+                  {duelScores.player > duelScores.opponent ? (
+                    <div className="space-y-sm">
+                      <span className="text-6xl animate-bounce block">🏆</span>
+                      <h3 className="text-xl font-extrabold text-green-600">BẠN ĐÃ CHIẾN THẮNG!</h3>
+                      <p className="text-xs font-medium text-on-surface-variant">Chiến thắng thuyết phục trước {duelOpponent}!</p>
+                    </div>
+                  ) : duelScores.player < duelScores.opponent ? (
+                    <div className="space-y-sm">
+                      <span className="text-6xl block">😢</span>
+                      <h3 className="text-xl font-extrabold text-error">RẤT TIẾC, BẠN THẤT BẠI!</h3>
+                      <p className="text-xs font-medium text-on-surface-variant">{duelOpponent} đã chơi quá xuất sắc!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-sm">
+                      <span className="text-6xl block">🤝</span>
+                      <h3 className="text-xl font-extrabold text-primary">KẾT QUẢ HÒA!</h3>
+                      <p className="text-xs font-medium text-on-surface-variant">Cả hai đấu trí ngang tài ngang sức!</p>
+                    </div>
+                  )}
+
+                  <div className="w-full bg-surface-container p-md rounded-2xl border border-outline-variant/10 flex justify-around items-center">
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-on-surface-variant">Bạn</p>
+                      <p className="text-2xl font-black text-primary font-display">{duelScores.player}đ</p>
+                    </div>
+                    <div className="h-8 w-[1px] bg-outline-variant/40" />
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-on-surface-variant">{duelOpponent}</p>
+                      <p className="text-2xl font-black text-secondary font-display">{duelScores.opponent}đ</p>
+                    </div>
+                  </div>
+
+                  <div className="w-full space-y-sm pt-md">
+                    <p className="text-xs text-on-surface-variant font-bold">
+                      Tổng điểm tích lũy: <span className="text-primary text-sm font-extrabold">+{Math.max(10, duelScores.player)} điểm</span>
+                    </p>
+                    <Btn onClick={() => finish(Math.max(10, duelScores.player), `Thách đấu 1-1 với ${duelOpponent}: ${duelScores.player > duelScores.opponent ? 'Thắng' : duelScores.player < duelScores.opponent ? 'Thua' : 'Hòa'} (${duelScores.player}-${duelScores.opponent})`)}>
+                      🤝 Nhận Điểm Thưởng
+                    </Btn>
+                  </div>
+                </div>
+              )}
+            </Wrap>
+          );
+        }
 
         // ── GAME 11: Vote Idea ────────────────────────────────────────────────────
         if (game.id === 11) return (

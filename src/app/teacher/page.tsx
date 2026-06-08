@@ -30,6 +30,12 @@ export default function TeacherPage() {
   const [customSecretQuestion, setCustomSecretQuestion] = useState('');
   const [customQuizQuestions, setCustomQuizQuestions] = useState<any[]>([]);
 
+  // Game 6 (Lucky hand-raiser spinner) states
+  const [wheelSpinning, setWheelSpinning] = useState(false);
+  const [wheelRotation, setWheelRotation] = useState(0);
+  const [selectedWinner, setSelectedWinner] = useState<any | null>(null);
+  const [winnerBonusAwarded, setWinnerBonusAwarded] = useState(false);
+
   // Load settings
   const loadSettings = useCallback(async () => {
     if (isMockEnabled) {
@@ -204,6 +210,104 @@ export default function TeacherPage() {
     const interval = setInterval(loadStudents, 3000);
     return () => clearInterval(interval);
   }, [loadStudents]);
+
+  const getHandRaisers = useCallback(() => {
+    return students
+      .filter(s => s.student_input && s.student_input.startsWith('Giơ tay'))
+      .map(s => {
+        const match = s.student_input?.match(/^Giơ tay lúc ([\d.]+)s/);
+        const seconds = match ? parseFloat(match[1]) : 999;
+        return { ...s, seconds };
+      })
+      .sort((a, b) => a.seconds - b.seconds)
+      .slice(0, 5);
+  }, [students]);
+
+  const buildConicGradient = (raisers: any[]) => {
+    if (raisers.length === 0) return 'gray';
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
+    let grad = 'conic-gradient(';
+    raisers.forEach((r, idx) => {
+      const start = idx * (360 / raisers.length);
+      const end = (idx + 1) * (360 / raisers.length);
+      const color = colors[idx % colors.length];
+      grad += `${color} ${start}deg ${end}deg${idx < raisers.length - 1 ? ', ' : ''}`;
+    });
+    grad += ')';
+    return grad;
+  };
+
+  const handleSpinWheel = (raisers: any[]) => {
+    if (raisers.length === 0 || wheelSpinning) return;
+    
+    setWheelSpinning(true);
+    setSelectedWinner(null);
+    setWinnerBonusAwarded(false);
+    
+    const winnerIdx = Math.floor(Math.random() * raisers.length);
+    const chosenStudent = raisers[winnerIdx];
+    
+    const segmentAngle = 360 / raisers.length;
+    // Rotate 5 full turns + stop at the segment's middle angle relative to 12 o'clock pointer (360 deg)
+    const targetAngle = 1800 + (360 - (winnerIdx * segmentAngle + segmentAngle / 2));
+    
+    setWheelRotation(targetAngle);
+    
+    setTimeout(() => {
+      setWheelSpinning(false);
+      setSelectedWinner(chosenStudent);
+    }, 4000);
+  };
+
+  const handleAwardBonus = async () => {
+    if (!selectedWinner || winnerBonusAwarded) return;
+    
+    setSaving(true);
+    if (isMockEnabled) {
+      const checkIns = JSON.parse(localStorage.getItem('mock_check_ins') || '[]');
+      const updated = checkIns.map((c: any) => {
+        if (c.id === selectedWinner.id) {
+          return {
+            ...c,
+            points_earned: c.points_earned + 10,
+            student_input: `${c.student_input} | Chọn trả lời (+10đ)`
+          };
+        }
+        return c;
+      });
+      localStorage.setItem('mock_check_ins', JSON.stringify(updated));
+      setWinnerBonusAwarded(true);
+      setSaving(false);
+      loadStudents();
+    } else {
+      try {
+        const { data: currentCi } = await supabase
+          .from('check_ins')
+          .select('points_earned, student_input')
+          .eq('id', selectedWinner.id)
+          .single();
+          
+        const newPoints = (currentCi?.points_earned || selectedWinner.points_earned) + 10;
+        const newInput = `${currentCi?.student_input || selectedWinner.student_input} | Chọn trả lời (+10đ)`;
+        
+        const { error } = await supabase
+          .from('check_ins')
+          .update({
+            points_earned: newPoints,
+            student_input: newInput
+          })
+          .eq('id', selectedWinner.id);
+          
+        if (error) throw error;
+        setWinnerBonusAwarded(true);
+        loadStudents();
+      } catch (err) {
+        console.error('Failed to award bonus points:', err);
+      } finally {
+        setSaving(false);
+      }
+    }
+  };
 
   // Persist and save
   const persist = async (newSettings: TeacherSettings) => {
@@ -399,7 +503,7 @@ export default function TeacherPage() {
             </span>
           </div>
 
-          {(() => {
+{(() => {
             const currentGame = ALL_GAMES.find(g => g.id === settings.currentWeek);
             if (!currentGame) return <p className="text-xs text-on-surface-variant">Không tìm thấy trò chơi phù hợp cho tuần này.</p>;
             return (
@@ -420,11 +524,13 @@ export default function TeacherPage() {
         </section>
 
         {/* Game Customisation Card */}
-        {mounted && (settings.currentWeek === 2 || settings.currentWeek === 9) && (
+        {mounted && (settings.currentWeek === 2 || settings.currentWeek === 9 || settings.currentWeek === 6) && (
           <section className="bg-white p-lg rounded-xxl shadow-sm border border-outline-variant/20 animate-fade-in-up mt-sm">
             <h4 className="text-sm font-bold text-on-surface mb-sm flex items-center gap-1">
-              <span className="material-symbols-outlined text-[18px] text-primary">edit_note</span>
-              Tùy biến câu hỏi tuần {settings.currentWeek}
+              <span className="material-symbols-outlined text-[18px] text-primary">
+                {settings.currentWeek === 6 ? 'casino' : 'edit_note'}
+              </span>
+              {settings.currentWeek === 6 ? 'Điều khiển Thử thách: Giơ tay trả lời' : `Tùy biến câu hỏi tuần ${settings.currentWeek}`}
             </h4>
             
             {settings.currentWeek === 2 && (
@@ -443,6 +549,131 @@ export default function TeacherPage() {
               </div>
             )}
 
+            {settings.currentWeek === 6 && (
+              <div className="space-y-md">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-lg items-center">
+                  {/* Left side: top list */}
+                  <div className="space-y-sm">
+                    <h5 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Top 5 sinh viên giơ tay nhanh nhất:</h5>
+                    {(() => {
+                      const raisers = getHandRaisers();
+                      if (raisers.length === 0) {
+                        return (
+                          <div className="p-md text-center bg-surface-container rounded-xl text-xs text-on-surface-variant font-medium">
+                            Chưa có sinh viên nào giơ tay điểm danh!
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="space-y-xs">
+                          {raisers.map((r, idx) => (
+                            <div key={r.id} className="flex items-center justify-between p-sm bg-surface-container-low rounded-xl border border-outline-variant/10">
+                              <div className="flex items-center gap-xs">
+                                <span className="text-xs font-black text-primary bg-primary/10 w-5 h-5 rounded-full flex items-center justify-center">
+                                  {idx + 1}
+                                </span>
+                                <span className="text-xs font-bold text-on-surface">{r.full_name}</span>
+                              </div>
+                              <span className="text-[10px] font-black text-green-700 bg-green-500/10 px-2 py-0.5 rounded-full">
+                                ⏱️ {r.seconds.toFixed(2)}s
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Right side: Lucky Wheel */}
+                  <div className="flex flex-col items-center justify-center py-md space-y-md border-t md:border-t-0 md:border-l border-outline-variant/20">
+                    {(() => {
+                      const raisers = getHandRaisers();
+                      if (raisers.length === 0) return (
+                        <p className="text-xs text-on-surface-variant italic text-center">
+                          Vòng quay sẽ xuất hiện khi có sinh viên giơ tay.
+                        </p>
+                      );
+                      return (
+                        <>
+                          <div className="relative">
+                            {/* Pointer arrow */}
+                            <div className="absolute top-[-12px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[18px] border-t-error z-20 filter drop-shadow-md" />
+                            
+                            {/* Wheel */}
+                            <div
+                              className="w-44 h-44 rounded-full border-4 border-on-surface shadow-2xl relative overflow-hidden flex items-center justify-center"
+                              style={{
+                                transform: `rotate(${wheelRotation}deg)`,
+                                backgroundImage: buildConicGradient(raisers),
+                                transition: wheelSpinning ? 'transform 4000ms cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none'
+                              }}
+                            >
+                              {/* Text labels */}
+                              {raisers.map((r, idx) => {
+                                const angle = idx * (360 / raisers.length) + (360 / raisers.length) / 2;
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="absolute text-[9px] font-black text-white select-none pointer-events-none text-center truncate max-w-[60px]"
+                                    style={{
+                                      top: '50%',
+                                      left: '50%',
+                                      transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-52px)`,
+                                      transformOrigin: 'center center',
+                                    }}
+                                  >
+                                    {r.full_name.split(' ').pop()}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Center PIN */}
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white border-4 border-on-surface flex items-center justify-center shadow-md z-20">
+                              <div className="w-2 h-2 rounded-full bg-error animate-pulse" />
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="w-full max-w-[200px] text-center">
+                            <button
+                              disabled={wheelSpinning || raisers.length === 0}
+                              onClick={() => handleSpinWheel(raisers)}
+                              className="w-full py-sm bg-primary text-on-primary font-black text-xs rounded-xl shadow-md active:scale-95 disabled:opacity-40 transition-all cursor-pointer hover:bg-primary/95 flex items-center justify-center gap-1"
+                            >
+                              <span className="material-symbols-outlined text-sm">settings_backup_restore</span>
+                              {wheelSpinning ? 'Đang quay...' : 'QUAY NGẪU NHIÊN 🎯'}
+                            </button>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Winner announcement and award button */}
+                {selectedWinner && (
+                  <div className="mt-md p-md bg-green-500/10 border border-green-500/30 rounded-2xl text-center space-y-sm animate-pop-in w-full">
+                    <p className="text-xs text-green-700 font-bold uppercase tracking-wider">🎉 Chúc mừng người được chọn! 🎉</p>
+                    <h4 className="text-md font-black text-on-surface">{selectedWinner.full_name}</h4>
+                    <p className="text-[11px] text-on-surface-variant">Giơ tay nhanh thứ: <span className="font-bold text-primary">{getHandRaisers().findIndex(r => r.id === selectedWinner.id) + 1}</span> (⏱️ {getHandRaisers().find(r => r.id === selectedWinner.id)?.seconds.toFixed(2)}s)</p>
+                    
+                    <button
+                      disabled={winnerBonusAwarded || saving}
+                      onClick={handleAwardBonus}
+                      className={`w-full py-sm font-bold text-xs rounded-xl transition-all shadow-sm ${
+                        winnerBonusAwarded
+                          ? 'bg-green-600 text-white cursor-default'
+                          : 'bg-secondary text-on-secondary hover:bg-secondary/90 active:scale-95 cursor-pointer'
+                      }`}
+                    >
+                      {winnerBonusAwarded ? '✅ Đã Cộng +10 Điểm Thưởng' : '🎁 Cộng +10 Điểm Thưởng Trả Lời'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {settings.currentWeek === 9 && customQuizQuestions.length > 0 && (
               <div className="space-y-md">
                 <p className="text-[11px] text-on-surface-variant font-medium">Chỉnh sửa 3 câu hỏi trắc nghiệm của Mini Quiz:</p>
@@ -455,45 +686,45 @@ export default function TeacherPage() {
                       type="text"
                       value={qItem.q}
                       onChange={(e) => {
-                        const updated = [...customQuizQuestions];
-                        updated[qIdx].q = e.target.value;
-                        setCustomQuizQuestions(updated);
-                        saveGameContent(9, { quizQuestions: updated });
+                        const next = [...customQuizQuestions];
+                        next[qIdx] = { ...next[qIdx], q: e.target.value };
+                        setCustomQuizQuestions(next);
+                        saveGameContent(9, { quizQuestions: next });
                       }}
-                      className="w-full px-sm py-xs rounded-lg border border-outline-variant/30 text-xs focus:outline-none focus:border-primary"
-                      placeholder={`Câu hỏi ${qIdx + 1}`}
+                      className="w-full px-md py-sm rounded-xl border border-outline-variant/40 text-xs focus:outline-none focus:border-primary bg-white"
+                      placeholder="Nhập câu hỏi..."
                     />
-                    
                     <div className="grid grid-cols-2 gap-sm">
-                      {qItem.opts.map((opt: string, optIdx: number) => (
-                        <div key={optIdx} className="flex items-center gap-xs">
-                          <span className="text-[10px] font-bold text-on-surface-variant">{String.fromCharCode(65 + optIdx)}:</span>
+                      {qItem.opts.map((optVal: string, oIdx: number) => (
+                        <div key={oIdx} className="space-y-xs">
+                          <label className="text-[10px] text-on-surface-variant font-bold">Đáp án {String.fromCharCode(65 + oIdx)}:</label>
                           <input
                             type="text"
-                            value={opt}
+                            value={optVal}
                             onChange={(e) => {
-                              const updated = [...customQuizQuestions];
-                              updated[qIdx].opts[optIdx] = e.target.value;
-                              setCustomQuizQuestions(updated);
-                              saveGameContent(9, { quizQuestions: updated });
+                              const next = [...customQuizQuestions];
+                              const nextOpts = [...next[qIdx].opts];
+                              nextOpts[oIdx] = e.target.value;
+                              next[qIdx] = { ...next[qIdx], opts: nextOpts };
+                              setCustomQuizQuestions(next);
+                              saveGameContent(9, { quizQuestions: next });
                             }}
-                            className="flex-grow px-sm py-0.5 rounded border border-outline-variant/20 text-[10px] focus:outline-none"
+                            className="w-full px-sm py-xs rounded-lg border border-outline-variant/40 text-[11px] focus:outline-none focus:border-primary bg-white"
                           />
                         </div>
                       ))}
                     </div>
-
-                    <div className="flex items-center gap-sm text-[10px]">
-                      <span className="font-bold text-on-surface-variant">Đáp án đúng:</span>
+                    <div className="flex items-center gap-sm pt-xs border-t border-outline-variant/10">
+                      <span className="text-[10px] font-bold text-on-surface-variant">Chọn đáp án đúng:</span>
                       <select
                         value={qItem.ans}
                         onChange={(e) => {
-                          const updated = [...customQuizQuestions];
-                          updated[qIdx].ans = parseInt(e.target.value);
-                          setCustomQuizQuestions(updated);
-                          saveGameContent(9, { quizQuestions: updated });
+                          const next = [...customQuizQuestions];
+                          next[qIdx] = { ...next[qIdx], ans: parseInt(e.target.value) };
+                          setCustomQuizQuestions(next);
+                          saveGameContent(9, { quizQuestions: next });
                         }}
-                        className="bg-white border border-outline-variant/30 rounded px-sm py-0.5"
+                        className="text-[11px] border border-outline-variant/40 rounded-lg px-xs py-0.5 bg-white"
                       >
                         <option value={0}>Đáp án A</option>
                         <option value={1}>Đáp án B</option>
