@@ -213,13 +213,17 @@ export default function TeacherPage() {
 
   const getHandRaisers = useCallback(() => {
     return students
-      .filter(s => s.student_input && s.student_input.startsWith('Giơ tay'))
       .map(s => {
         const match = s.student_input?.match(/^Giơ tay lúc ([\d.]+)s/);
-        const seconds = match ? parseFloat(match[1]) : 999;
+        const seconds = match ? parseFloat(match[1]) : 5.0;
         return { ...s, seconds };
       })
-      .sort((a, b) => a.seconds - b.seconds)
+      .sort((a, b) => {
+        if (a.seconds !== b.seconds) {
+          return a.seconds - b.seconds;
+        }
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      })
       .slice(0, 5);
   }, [students]);
 
