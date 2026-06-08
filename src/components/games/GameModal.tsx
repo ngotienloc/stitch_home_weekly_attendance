@@ -167,6 +167,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const [bombStatusText, setBombStatusText] = useState<string>('Đang đợi giảng viên kích hoạt bom...');
   const [bombScore, setBombScore] = useState<number>(0);
   const [bombCompleted, setBombCompleted] = useState<boolean>(false);
+  const [bombExploded, setBombExploded] = useState<boolean>(false);
   const bombChannelRef = useRef<any>(null);
 
   // Game 2 (Đấu trường sinh tử) state

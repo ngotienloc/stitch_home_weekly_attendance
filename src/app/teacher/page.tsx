@@ -463,6 +463,14 @@ export default function TeacherPage() {
     });
   };
 
+  const BOMB_QUESTIONS = [
+    { q: "Từ khóa 'CSS' viết tắt của cụm từ nào?", opts: ["Cascading Style Sheets", "Creative Style System", "Computer Style Sheets", "Colorful Style System"], ans: 0 },
+    { q: "Thẻ HTML nào dùng để chèn hình ảnh?", opts: ["<picture>", "<img>", "<image>", "<src>"], ans: 1 },
+    { q: "Ngôn ngữ nào chạy trực tiếp trong trình duyệt web?", opts: ["Python", "C++", "Java", "JavaScript"], ans: 3 },
+    { q: "Đâu là một React hook hợp lệ?", opts: ["useFetch", "useState", "useVar", "useReact"], ans: 1 },
+    { q: "Giao thức truyền tải văn bản siêu văn bản an toàn là?", opts: ["HTTP", "FTP", "HTTPS", "SMTP"], ans: 2 }
+  ];
+
   // Game 1: Bomb Challenge control functions
   const startBombGame = (selectedUserToStartId?: string) => {
     setBombStatus('active');
@@ -576,8 +584,8 @@ export default function TeacherPage() {
       if (error) throw error;
       
       if (data) {
-        const uniqueMembers = data.filter((v, i, a) => a.findIndex(t => t.student_id === v.student_id) === i);
-        setUndercoverGroupMembers(uniqueMembers.map(m => ({ id: m.student_id, name: m.student_name })));
+        const uniqueMembers = data.filter((v: any, i: number, a: any[]) => a.findIndex((t: any) => t.student_id === v.student_id) === i);
+        setUndercoverGroupMembers(uniqueMembers.map((m: any) => ({ id: m.student_id, name: m.student_name })));
       }
     } catch (err) {
       console.error(err);
