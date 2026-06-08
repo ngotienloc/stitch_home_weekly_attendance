@@ -19,9 +19,9 @@ const Wrap = ({ children }: { children: React.ReactNode }) => {
   const { game, weekNumber, onClose } = ctx;
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface-container-lowest rounded-xxl w-full max-w-[450px] shadow-2xl border border-outline-variant/20 overflow-hidden animate-pop-in relative">
+      <div className="bg-surface-container-lowest rounded-xxl w-full max-w-[450px] max-h-[90vh] flex flex-col shadow-2xl border border-outline-variant/20 overflow-hidden animate-pop-in relative">
         {/* Header */}
-        <div className="bg-primary p-md flex items-center justify-between">
+        <div className="bg-primary p-md flex items-center justify-between shrink-0">
           <div className="flex items-center gap-sm">
             <span className="text-2xl">{game.icon}</span>
             <div>
@@ -33,7 +33,7 @@ const Wrap = ({ children }: { children: React.ReactNode }) => {
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
-        <div className="p-lg overflow-y-auto max-h-[calc(100vh-140px)]">{children}</div>
+        <div className="p-lg overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );
