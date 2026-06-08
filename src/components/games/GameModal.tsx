@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import type { Game } from '@/utils/supabase/client';
-import { getGameContent, createClient, isMockEnabled } from '@/utils/supabase/client';
+import { getGameContent, saveGameContent, createClient, isMockEnabled } from '@/utils/supabase/client';
 
 interface Props {
   game: Game;
