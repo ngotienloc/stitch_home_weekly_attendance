@@ -111,6 +111,24 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const duelIntervalRef = useRef<any>(null);
   const opponentTimeoutRef = useRef<any>(null);
 
+  // Game 4 (Group Challenge) state
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [stickyNotes, setStickyNotes] = useState<any[]>([]);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [currentNoteText, setCurrentNoteText] = useState<string>('');
+  const [currentChatText, setCurrentChatText] = useState<string>('');
+  const [solutionText, setSolutionText] = useState<string>('');
+  const [activeGroupCheckins, setActiveGroupCheckins] = useState<any[]>([]);
+  const botTimerRef = useRef<any[]>([]);
+  const [activeGroupTab, setActiveGroupTab] = useState<'board' | 'chat'>('board');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('course_team_name');
+      if (saved) setSelectedGroup(saved);
+    }
+  }, []);
+
   // Matchmaking states & references
   const [currentUser, setCurrentUser] = useState<{ id: string; full_name: string } | null>(null);
   const [searchTimer, setSearchTimer] = useState<number>(0);
@@ -349,6 +367,241 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
       handleDuelRoundEnd(false);
     }
   }, [game.id, duelStep, duelPlayerAns, duelOpponentAns]);
+
+  // Game 4 (Team Challenge) database query for members
+  useEffect(() => {
+    if (game.id === 4 && selectedGroup) {
+      if (isMockEnabled) {
+        const mockCheckins = [
+          { full_name: 'Nguyễn Hoàng Nam', student_input: `${selectedGroup} | Ý tưởng: Cảm biến AI giao thông` },
+          { full_name: 'Lê Hải Yến', student_input: `${selectedGroup} | Ý tưởng: Làn bus điện BRT` },
+        ];
+        setActiveGroupCheckins(mockCheckins);
+      } else {
+        supabase
+          .from('check_ins')
+          .select('student_input, user_id, profiles(full_name)')
+          .eq('week_number', 4)
+          .then(({ data }: { data: any }) => {
+            if (data) {
+              const formatted = data.map((c: any) => ({
+                full_name: c.profiles?.full_name || 'Học viên',
+                student_input: c.student_input
+              }));
+              setActiveGroupCheckins(formatted);
+            }
+          });
+      }
+    }
+  }, [game.id, selectedGroup]);
+
+  // Game 4 (Team Challenge) Realtime Channel
+  useEffect(() => {
+    if (game.id !== 4 || !selectedGroup || !currentUser) return;
+
+    const groupSlug = selectedGroup.replace(/\s+/g, '_').toLowerCase();
+    const channelName = isMockEnabled ? `mock_group_${groupSlug}` : `real_group_${groupSlug}`;
+    const channel = supabase.channel(channelName, {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+
+    groupChannelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'post_note' }, ({ payload }: { payload: any }) => {
+        const { note } = payload;
+        setStickyNotes(prev => {
+          if (prev.some(n => n.id === note.id)) return prev;
+          return [...prev, note];
+        });
+      })
+      .on('broadcast', { event: 'send_chat' }, ({ payload }: { payload: any }) => {
+        const { msg } = payload;
+        setChatMessages(prev => {
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      })
+      .subscribe();
+
+    return () => {
+      if (groupChannelRef.current) {
+        supabase.removeChannel(groupChannelRef.current);
+        groupChannelRef.current = null;
+      }
+    };
+  }, [game.id, selectedGroup, currentUser]);
+
+  // Game 4: AI Bot simulation
+  useEffect(() => {
+    if (game.id === 4 && selectedGroup) {
+      botTimerRef.current.forEach(t => clearTimeout(t));
+      botTimerRef.current = [];
+
+      setStickyNotes([
+        {
+          id: 'bot-1',
+          name: 'Lê Hải Yến',
+          content: 'Nghiên cứu mô hình làn đường thông minh cho xe bus điện BRT',
+          color: 'bg-emerald-100 border-emerald-300 text-emerald-900'
+        }
+      ]);
+      setChatMessages([
+        {
+          id: 'chat-bot-1',
+          sender: 'Nguyễn Hoàng Nam',
+          text: 'Chào mọi người! Nhóm mình bắt đầu thảo luận thiết kế giải pháp giao thông nhé.',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+
+      const t1 = setTimeout(() => {
+        setChatMessages(prev => [
+          ...prev,
+          {
+            id: 'chat-bot-2',
+            sender: 'Lê Hải Yến',
+            text: 'Mình đã ghim 1 ý tưởng lên bảng. Mình nghĩ nên có làn đường riêng cho xe bus điện BRT để tránh kẹt xe.',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+      }, 4000);
+      botTimerRef.current.push(t1);
+
+      const t2 = setTimeout(() => {
+        setStickyNotes(prev => [
+          ...prev,
+          {
+            id: 'bot-2',
+            name: 'Nguyễn Hoàng Nam',
+            content: 'Áp dụng cảm biến AI để tự động điều chỉnh chu kỳ đèn giao thông theo lưu lượng thực tế',
+            color: 'bg-amber-100 border-amber-300 text-amber-900'
+          }
+        ]);
+        setChatMessages(prev => [
+          ...prev,
+          {
+            id: 'chat-bot-3',
+            sender: 'Nguyễn Hoàng Nam',
+            text: 'Mình mới dán ý tưởng dùng đèn giao thông thông minh AI lên bảng rồi đó.',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+      }, 8000);
+      botTimerRef.current.push(t2);
+
+      const t3 = setTimeout(() => {
+        setChatMessages(prev => [
+          ...prev,
+          {
+            id: 'chat-bot-4',
+            sender: 'Trần Thị Lan',
+            text: 'Ý tưởng của Nam rất thực tế. Mình sẽ bổ sung ý tưởng về trạm sạc điện công cộng.',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+      }, 13000);
+      botTimerRef.current.push(t3);
+
+      const t4 = setTimeout(() => {
+        setStickyNotes(prev => [
+          ...prev,
+          {
+            id: 'bot-3',
+            name: 'Trần Thị Lan',
+            content: 'Mở rộng mạng lưới trạm sạc điện công cộng tại các bãi đỗ xe trung chuyển ngoại ô',
+            color: 'bg-rose-100 border-rose-300 text-rose-900'
+          }
+        ]);
+      }, 16000);
+      botTimerRef.current.push(t4);
+    }
+
+    return () => {
+      botTimerRef.current.forEach(t => clearTimeout(t));
+      botTimerRef.current = [];
+    };
+  }, [game.id, selectedGroup]);
+
+  const getGroupMembers = () => {
+    const names = new Set<string>();
+    activeGroupCheckins.forEach(c => {
+      if (c.student_input && c.student_input.startsWith(selectedGroup || '')) {
+        names.add(c.full_name);
+      }
+    });
+
+    if (currentUser) {
+      names.add(currentUser.full_name);
+    }
+
+    const defaultBots = ['Lê Hải Yến', 'Trần Thị Lan', 'Nguyễn Hoàng Nam', 'Phạm Gia Bảo'];
+    let idx = 0;
+    while (names.size < 4 && idx < defaultBots.length) {
+      if (defaultBots[idx] !== currentUser?.full_name) {
+        names.add(defaultBots[idx]);
+      }
+      idx++;
+    }
+    return Array.from(names);
+  };
+
+  const postStickyNote = (content: string) => {
+    if (!content.trim() || !currentUser || !selectedGroup) return;
+    const colors = [
+      'bg-amber-100 border-amber-300 text-amber-900',
+      'bg-emerald-100 border-emerald-300 text-emerald-900',
+      'bg-rose-100 border-rose-300 text-rose-900',
+      'bg-sky-100 border-sky-300 text-sky-900'
+    ];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    const note = {
+      id: `${currentUser.id}-${Date.now()}`,
+      name: currentUser.full_name,
+      content: content.trim(),
+      color: randomColor
+    };
+
+    setStickyNotes(prev => [...prev, note]);
+
+    if (groupChannelRef.current) {
+      groupChannelRef.current.send({
+        type: 'broadcast',
+        event: 'post_note',
+        payload: { note }
+      });
+    }
+  };
+
+  const sendGroupChat = (msgText: string) => {
+    if (!msgText.trim() || !currentUser || !selectedGroup) return;
+    const msg = {
+      id: `${currentUser.id}-${Date.now()}`,
+      sender: currentUser.full_name,
+      text: msgText.trim(),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setChatMessages(prev => [...prev, msg]);
+
+    if (groupChannelRef.current) {
+      groupChannelRef.current.send({
+        type: 'broadcast',
+        event: 'send_chat',
+        payload: { msg }
+      });
+    }
+  };
+
+  const handleGroupChallengeSubmit = () => {
+    if (!selectedGroup) return;
+    const notesSummary = stickyNotes.map(n => `[${n.name}]: ${n.content}`).join('; ');
+    const solutionSummary = solutionText.trim() || 'Thảo luận nhóm thiết kế giải pháp';
+    const finalInput = `${selectedGroup} | Ý tưởng: ${notesSummary} | Giải pháp: ${solutionSummary}`;
+    finish(20, finalInput);
+  };
 
   const handleDuelPlayerAnswer = (optionIdx: number) => {
     if (duelPlayerAns !== null || duelStep !== 'playing') return;
@@ -622,17 +875,205 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
         if (game.id === 4) return (
           <Wrap>
             <div className="space-y-md">
-              <div className="bg-primary-container/30 rounded-xl p-md border border-primary/20">
-                <p className="text-xs font-bold text-primary uppercase mb-xs">Thử thách nhóm</p>
-                <p className="font-semibold text-on-surface text-sm">{gc.teamChallenge}</p>
-              </div>
-              <div className="bg-surface-container rounded-xl p-sm">
-                <p className="text-xs font-bold text-on-surface-variant mb-xs">Thành viên cùng nhóm:</p>
-                {['Trần Thị Lan', 'Nguyễn Hoàng Nam', 'Lê Hải Yến'].map(n => (
-                  <div key={n} className="flex items-center gap-sm py-xs"><span className="w-2 h-2 bg-tertiary rounded-full" /><span className="text-sm text-on-surface">{n}</span></div>
-                ))}
-              </div>
-              <Btn onClick={() => finish(20)}>✅ Tham gia thử thách (+20 điểm)</Btn>
+              {/* Phase 1: Group Selection */}
+              {!selectedGroup && (
+                <div className="space-y-md text-center py-sm">
+                  <p className="text-sm font-bold text-on-surface-variant mb-md">
+                    Chọn Nhóm thực tế của bạn học phần này:
+                  </p>
+                  <div className="grid grid-cols-2 gap-sm max-h-[300px] overflow-y-auto pr-xs">
+                    {Array.from({ length: 10 }).map((_, i) => {
+                      const groupName = `Nhóm ${i + 1}`;
+                      return (
+                        <button
+                          key={groupName}
+                          onClick={() => {
+                            setSelectedGroup(groupName);
+                            localStorage.setItem('course_team_name', groupName);
+                          }}
+                          className="p-md rounded-2xl border border-outline-variant/30 hover:border-primary/50 hover:bg-primary/5 active:scale-95 transition-all text-sm font-extrabold text-on-surface flex flex-col items-center gap-1 cursor-pointer bg-white"
+                        >
+                          <span className="text-2xl">👥</span>
+                          {groupName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Phase 2: Group Workspace */}
+              {selectedGroup && (
+                <div className="space-y-sm">
+                  {/* Challenge prompt */}
+                  <div className="bg-primary/5 rounded-2xl p-md border border-primary/10 space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                        🎯 {selectedGroup}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setSelectedGroup(null);
+                          localStorage.removeItem('course_team_name');
+                        }}
+                        className="text-[10px] font-bold text-on-surface-variant hover:text-error hover:underline transition-colors"
+                      >
+                        Đổi nhóm
+                      </button>
+                    </div>
+                    <p className="text-xs font-bold text-on-surface leading-tight mt-1">{gc.teamChallenge}</p>
+                  </div>
+
+                  {/* Tabs Selector */}
+                  <div className="flex border-b border-outline-variant/20">
+                    <button
+                      onClick={() => setActiveGroupTab('board')}
+                      className={`flex-1 py-2 text-xs font-black transition-all border-b-2 ${activeGroupTab === 'board' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant'}`}
+                    >
+                      Bảng Ý Tưởng 📌 ({stickyNotes.length})
+                    </button>
+                    <button
+                      onClick={() => setActiveGroupTab('chat')}
+                      className={`flex-1 py-2 text-xs font-black transition-all border-b-2 ${activeGroupTab === 'chat' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant'}`}
+                    >
+                      Thảo Luận Nhóm 💬 ({chatMessages.length})
+                    </button>
+                  </div>
+
+                  {/* Tab Content: Board */}
+                  {activeGroupTab === 'board' && (
+                    <div className="space-y-sm">
+                      <div className="grid grid-cols-2 gap-sm bg-surface-container/30 p-sm rounded-2xl border border-outline-variant/10 min-h-[140px] max-h-[220px] overflow-y-auto">
+                        {stickyNotes.length === 0 ? (
+                          <div className="col-span-2 flex flex-col items-center justify-center p-md text-center text-xs text-on-surface-variant font-medium">
+                            <span>📌 Ý tưởng của nhóm sẽ xuất hiện ở đây.</span>
+                            <span>Hãy là người đầu tiên ghim ghi chú!</span>
+                          </div>
+                        ) : (
+                          stickyNotes.map((note) => (
+                            <div
+                              key={note.id}
+                              className={`p-sm rounded-xl border shadow-sm flex flex-col justify-between min-h-[85px] transition-all hover:-translate-y-0.5 ${note.color}`}
+                            >
+                              <p className="text-[11px] font-bold leading-snug break-words">"{note.content}"</p>
+                              <span className="text-[9px] font-black mt-2 self-end opacity-85">📌 {note.name}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Post Note Input */}
+                      <div className="flex gap-sm">
+                        <input
+                          type="text"
+                          value={currentNoteText}
+                          onChange={(e) => setCurrentNoteText(e.target.value)}
+                          placeholder="Nhập ý tưởng của bạn..."
+                          className="flex-grow px-sm py-xs text-xs rounded-xl border border-outline-variant/40 focus:outline-none focus:border-primary bg-surface-container-low"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              postStickyNote(currentNoteText);
+                              setCurrentNoteText('');
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => {
+                            postStickyNote(currentNoteText);
+                            setCurrentNoteText('');
+                          }}
+                          disabled={!currentNoteText.trim()}
+                          className="px-md py-xs bg-primary text-on-primary font-bold text-xs rounded-xl active:scale-95 transition-all disabled:opacity-40"
+                        >
+                          Ghim 📌
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab Content: Chat */}
+                  {activeGroupTab === 'chat' && (
+                    <div className="space-y-sm">
+                      <div className="flex flex-col gap-sm bg-surface-container/30 p-sm rounded-2xl border border-outline-variant/10 min-h-[140px] max-h-[220px] overflow-y-auto">
+                        {chatMessages.length === 0 ? (
+                          <div className="flex items-center justify-center p-md text-center text-xs text-on-surface-variant font-medium h-full">
+                            Bắt đầu thảo luận với nhóm của bạn...
+                          </div>
+                        ) : (
+                          chatMessages.map((msg) => (
+                            <div key={msg.id} className="flex flex-col gap-0.5">
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-[10px] font-black text-on-surface">{msg.sender}</span>
+                                <span className="text-[8px] text-on-surface-variant font-medium">{msg.time}</span>
+                              </div>
+                              <p className="text-xs bg-surface-container-low px-sm py-xs rounded-xl border border-outline-variant/10 text-on-surface max-w-[85%] self-start leading-tight">
+                                {msg.text}
+                              </p>
+                            </div>
+                          ))
+                        )}
+                        <p className="text-[9px] text-on-surface-variant font-semibold animate-pulse italic mt-xs">
+                          🟢 {getGroupMembers().join(', ')} đang online...
+                        </p>
+                      </div>
+
+                      {/* Chat Input */}
+                      <div className="flex gap-sm">
+                        <input
+                          type="text"
+                          value={currentChatText}
+                          onChange={(e) => setCurrentChatText(e.target.value)}
+                          placeholder="Nhập nội dung thảo luận..."
+                          className="flex-grow px-sm py-xs text-xs rounded-xl border border-outline-variant/40 focus:outline-none focus:border-primary bg-surface-container-low"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              sendGroupChat(currentChatText);
+                              setCurrentChatText('');
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => {
+                            sendGroupChat(currentChatText);
+                            setCurrentChatText('');
+                          }}
+                          disabled={!currentChatText.trim()}
+                          className="px-md py-xs bg-secondary text-on-secondary font-bold text-xs rounded-xl active:scale-95 transition-all disabled:opacity-40"
+                        >
+                          Gửi 💬
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Submission and solution text */}
+                  <div className="space-y-sm pt-sm border-t border-outline-variant/20 mt-sm">
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-wider block">
+                      📝 Tóm tắt giải pháp của nhóm:
+                    </label>
+                    <textarea
+                      value={solutionText}
+                      onChange={(e) => setSolutionText(e.target.value)}
+                      placeholder="Nhập tóm tắt giải pháp cuối cùng của nhóm bạn sau khi thống nhất..."
+                      rows={2}
+                      className="w-full p-sm text-xs rounded-xl border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none bg-surface-container-low"
+                    />
+                    <button
+                      onClick={handleGroupChallengeSubmit}
+                      disabled={stickyNotes.length === 0}
+                      className="w-full py-sm bg-primary text-on-primary font-black text-xs rounded-xl shadow-md active:scale-95 transition-all disabled:opacity-40 cursor-pointer flex items-center justify-center gap-1 mt-xs"
+                    >
+                      <span className="material-symbols-outlined text-xs">cloud_upload</span>
+                      Nộp bài giải nhóm (+20 điểm)
+                    </button>
+                    {stickyNotes.length === 0 && (
+                      <p className="text-[9px] text-center text-error font-bold">
+                        ⚠️ Hãy thảo luận và đăng ít nhất 1 ý tưởng lên bảng trước khi nộp giải pháp!
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </Wrap>
         );
