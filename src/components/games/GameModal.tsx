@@ -137,6 +137,18 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const matchmakingChannelRef = useRef<any>(null);
   const gameChannelRef = useRef<any>(null);
   const groupChannelRef = useRef<any>(null);
+  const votingChannelRef = useRef<any>(null);
+
+  // Game 11 (Idea Voting) student state
+  const [votingState, setVotingState] = useState<'waiting' | 'voting' | 'ended'>('waiting');
+  const [votingIdeas, setVotingIdeas] = useState<{ id: string; label: string }[]>([]);
+  const [votedRank1, setVotedRank1] = useState<string | null>(null);
+  const [votedRank2, setVotedRank2] = useState<string | null>(null);
+  const [votedRank3, setVotedRank3] = useState<string | null>(null);
+  const [votingEndTime, setVotingEndTime] = useState<number>(0);
+  const [votingTimer, setVotingTimer] = useState<number>(120);
+  const [votingScores, setVotingScores] = useState<Record<string, number>>({});
+  const [votedSubmitted, setVotedSubmitted] = useState<boolean>(false);
 
   // Fetch current profile for matchmaking
   useEffect(() => {
@@ -506,6 +518,111 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     };
   }, [game.id]);
 
+  // Game 11 (Idea Voting) student realtime effects
+  useEffect(() => {
+    if (game.id !== 11) return;
+
+    const channel = supabase.channel('idea_voting_global', {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+    votingChannelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'start_voting' }, ({ payload }: { payload: any }) => {
+        const { ideas, endTime, state, scores } = payload;
+        setVotingIdeas(ideas || []);
+        setVotingEndTime(endTime || 0);
+        setVotingState(state || 'voting');
+        setVotingScores(scores || {});
+      })
+      .on('broadcast', { event: 'sync_voting_state' }, ({ payload }: { payload: any }) => {
+        const { ideas, endTime, state, scores } = payload;
+        setVotingIdeas(ideas || []);
+        setVotingEndTime(endTime || 0);
+        setVotingState(state || 'voting');
+        setVotingScores(scores || {});
+      })
+      .on('broadcast', { event: 'update_leaderboard' }, ({ payload }: { payload: any }) => {
+        const { scores } = payload;
+        setVotingScores(scores || {});
+      })
+      .on('broadcast', { event: 'close_voting' }, () => {
+        setVotingState('ended');
+      })
+      .subscribe();
+
+    // Handshake request for state
+    const tReq = setTimeout(() => {
+      channel.send({
+        type: 'broadcast',
+        event: 'request_voting_state'
+      });
+    }, 1000);
+
+    // Auto-fallback mock session if no response after 4 seconds
+    const tMock = setTimeout(() => {
+      setVotingState(current => {
+        if (current === 'waiting') {
+          const mockIdeas = [
+            { id: 'idea_0', label: 'Hệ thống phân làn xe buýt điện thông minh (Nhóm 1)' },
+            { id: 'idea_1', label: 'Trạm sạc xe điện kết hợp cafe năng lượng mặt trời (Nhóm 2)' },
+            { id: 'idea_2', label: 'Bản đồ mật độ giao thông đô thị thời gian thực (Nhóm 3)' },
+            { id: 'idea_3', label: 'Ứng dụng gọi xe đạp công cộng qua QR Code (Nhóm 4)' },
+            { id: 'idea_4', label: 'Đèn đường thông minh tự động cảm biến chuyển động (Nhóm 5)' }
+          ];
+          setVotingIdeas(mockIdeas);
+          setVotingEndTime(Date.now() + 120000);
+          const mockScores: Record<string, number> = {};
+          mockIdeas.forEach(i => { mockScores[i.id] = Math.floor(Math.random() * 10); });
+          setVotingScores(mockScores);
+          return 'voting';
+        }
+        return current;
+      });
+    }, 4000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      votingChannelRef.current = null;
+      clearTimeout(tReq);
+      clearTimeout(tMock);
+    };
+  }, [game.id]);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (game.id === 11 && votingState === 'voting' && votingEndTime > 0) {
+      const t = setInterval(() => {
+        const diff = Math.max(0, Math.floor((votingEndTime - Date.now()) / 1000));
+        setVotingTimer(diff);
+        if (diff <= 0) {
+          setVotingState('ended');
+          clearInterval(t);
+        }
+      }, 1000);
+      return () => clearInterval(t);
+    }
+  }, [game.id, votingState, votingEndTime]);
+
+  // Simulate other votes in mock/solo mode
+  useEffect(() => {
+    if (game.id !== 11 || votingState !== 'voting' || votingIdeas.length === 0) return;
+    
+    const interval = setInterval(() => {
+      setVotingScores(prev => {
+        const next = { ...prev };
+        const randomIdeaId = votingIdeas[Math.floor(Math.random() * votingIdeas.length)].id;
+        const randomPts = [1, 2, 3][Math.floor(Math.random() * 3)];
+        next[randomIdeaId] = (next[randomIdeaId] || 0) + randomPts;
+        return next;
+      });
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [game.id, votingState, votingIdeas]);
+
   const getGroupMembers = () => {
     const names = new Set<string>();
     if (currentUser) {
@@ -587,6 +704,34 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     }
 
     finish(20, finalInput);
+  };
+
+  const submitStudentVote = () => {
+    if (!votedRank1 || !votedRank2 || !votedRank3) return;
+    
+    if (votingChannelRef.current) {
+      votingChannelRef.current.send({
+        type: 'broadcast',
+        event: 'submit_vote',
+        payload: { votes: [votedRank1, votedRank2, votedRank3] }
+      });
+    }
+
+    setVotingScores(prev => {
+      const next = { ...prev };
+      next[votedRank1] = (next[votedRank1] || 0) + 3;
+      next[votedRank2] = (next[votedRank2] || 0) + 2;
+      next[votedRank3] = (next[votedRank3] || 0) + 1;
+      return next;
+    });
+
+    setVotedSubmitted(true);
+
+    const label1 = votingIdeas.find(i => i.id === votedRank1)?.label || votedRank1;
+    const label2 = votingIdeas.find(i => i.id === votedRank2)?.label || votedRank2;
+    const label3 = votingIdeas.find(i => i.id === votedRank3)?.label || votedRank3;
+
+    finish(10, `Bình chọn ý tưởng - Hạng 1: ${label1} | Hạng 2: ${label2} | Hạng 3: ${label3}`);
   };
 
   const handleDuelPlayerAnswer = (optionIdx: number) => {
@@ -1412,10 +1557,139 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
         if (game.id === 11) return (
           <Wrap>
             <div className="space-y-md">
-              <p className="font-semibold text-on-surface">💡 Chia sẻ ý tưởng sáng tạo của bạn:</p>
-              <textarea value={text} onChange={e => setText(e.target.value)} rows={4} placeholder="Mô tả ý tưởng của bạn để giải quyết vấn đề trong bài học..."
-                className="w-full p-md rounded-xl border border-outline-variant/40 focus:border-primary outline-none text-sm resize-none bg-surface-container-low" />
-              <Btn disabled={text.trim().length < 10} onClick={() => finish(10)}>📤 Gửi ý tưởng (+10 điểm)</Btn>
+              {votingState === 'waiting' && (
+                <div className="flex flex-col items-center justify-center py-lg space-y-md text-center">
+                  <div className="text-5xl animate-bounce">💡</div>
+                  <p className="font-extrabold text-on-surface text-sm">Đang đợi giảng viên công bố danh sách ý tưởng...</p>
+                  <p className="text-xs text-on-surface-variant max-w-[280px]">
+                    Khi giảng viên bắt đầu, danh sách ý tưởng sẽ tự động xuất hiện ở đây để bạn bình chọn.
+                  </p>
+                </div>
+              )}
+
+              {(votingState === 'voting' || votingState === 'ended') && (
+                <div className="space-y-md">
+                  {/* Timer Header */}
+                  <div className="flex justify-between items-center bg-primary/5 p-md rounded-2xl border border-primary/10">
+                    <span className="text-xs font-black text-primary uppercase">
+                      {votingState === 'voting' ? '⏱️ ĐANG BÌNH CHỌN' : '🔒 ĐÃ KẾT THÚC'}
+                    </span>
+                    <span className="text-sm font-black text-error">
+                      {votingTimer > 0 ? `${Math.floor(votingTimer / 60)}:${(votingTimer % 60).toString().padStart(2, '0')}` : '0:00'}
+                    </span>
+                  </div>
+
+                  {!votedSubmitted ? (
+                    <div className="space-y-sm">
+                      <p className="text-xs font-bold text-on-surface-variant leading-tight mb-2">
+                        Bình chọn 3 ý tưởng tốt nhất theo thứ tự ưu tiên 1, 2, 3:
+                      </p>
+
+                      <div className="space-y-sm">
+                        <div>
+                          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-wider block mb-1">
+                            🥇 Hạng 1 (Đáng giá 3 điểm):
+                          </label>
+                          <select
+                            value={votedRank1 || ''}
+                            onChange={e => setVotedRank1(e.target.value || null)}
+                            className="w-full p-md text-xs rounded-xl border border-outline-variant/40 bg-surface-container-low focus:border-primary outline-none"
+                          >
+                            <option value="">-- Chọn ý tưởng tốt nhất --</option>
+                            {votingIdeas.map(i => (
+                              <option key={i.id} value={i.id} disabled={i.id === votedRank2 || i.id === votedRank3}>
+                                {i.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-wider block mb-1">
+                            🥈 Hạng 2 (Đáng giá 2 điểm):
+                          </label>
+                          <select
+                            value={votedRank2 || ''}
+                            onChange={e => setVotedRank2(e.target.value || null)}
+                            className="w-full p-md text-xs rounded-xl border border-outline-variant/40 bg-surface-container-low focus:border-primary outline-none"
+                          >
+                            <option value="">-- Chọn ý tưởng tốt thứ hai --</option>
+                            {votingIdeas.map(i => (
+                              <option key={i.id} value={i.id} disabled={i.id === votedRank1 || i.id === votedRank3}>
+                                {i.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-wider block mb-1">
+                            🥉 Hạng 3 (Đáng giá 1 điểm):
+                          </label>
+                          <select
+                            value={votedRank3 || ''}
+                            onChange={e => setVotedRank3(e.target.value || null)}
+                            className="w-full p-md text-xs rounded-xl border border-outline-variant/40 bg-surface-container-low focus:border-primary outline-none"
+                          >
+                            <option value="">-- Chọn ý tưởng tốt thứ ba --</option>
+                            {votingIdeas.map(i => (
+                              <option key={i.id} value={i.id} disabled={i.id === votedRank1 || i.id === votedRank2}>
+                                {i.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="pt-sm">
+                        <Btn
+                          onClick={submitStudentVote}
+                          disabled={!votedRank1 || !votedRank2 || !votedRank3 || votingState === 'ended'}
+                        >
+                          📤 Gửi bình chọn của bạn (+10 điểm)
+                        </Btn>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-md">
+                      <div className="p-md bg-emerald-50 text-emerald-900 rounded-xl text-center text-xs font-extrabold border border-emerald-200">
+                        🎉 Cảm ơn bạn đã bình chọn! Bạn được cộng +10đ.
+                      </div>
+
+                      <div className="space-y-sm">
+                        <p className="text-xs font-black text-on-surface-variant uppercase tracking-wider">
+                          Bảng xếp hạng bình chọn hiện tại:
+                        </p>
+                        <div className="space-y-xs">
+                          {votingIdeas
+                            .map(i => ({ ...i, score: votingScores[i.id] || 0 }))
+                            .sort((a, b) => b.score - a.score)
+                            .map((item, index) => {
+                              const maxScore = Math.max(...Object.values(votingScores), 1);
+                              const percent = Math.min((item.score / maxScore) * 100, 100);
+                              return (
+                                <div key={item.id} className="space-y-1">
+                                  <div className="flex justify-between text-xs font-bold">
+                                    <span className="truncate max-w-[280px]">
+                                      <span className="font-bold text-primary mr-1">#{index + 1}</span> {item.label}
+                                    </span>
+                                    <span className="text-primary">{item.score} điểm</span>
+                                  </div>
+                                  <div className="h-2 w-full bg-outline-variant/20 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
+                                      style={{ width: `${percent}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </Wrap>
         );

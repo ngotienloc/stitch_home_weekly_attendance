@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient, isMockEnabled, isUserTeacher, getTeacherSettings, saveTeacherSettings, SUBJECT_NAME, TOTAL_WEEKS, TEACHER_ID, DEFAULT_TEACHER_SETTINGS, ALL_GAMES, getGameContent, saveGameContent } from '@/utils/supabase/client';
 import type { TeacherSettings, Game } from '@/utils/supabase/client';
@@ -36,6 +36,20 @@ export default function TeacherPage() {
   const [wheelRotation, setWheelRotation] = useState(0);
   const [selectedWinner, setSelectedWinner] = useState<any | null>(null);
   const [winnerBonusAwarded, setWinnerBonusAwarded] = useState(false);
+
+  // Game 11 (Idea Voting) states
+  const [teacherVotingState, setTeacherVotingState] = useState<'idle' | 'active' | 'ended'>('idle');
+  const [teacherVotingIdeas, setTeacherVotingIdeas] = useState<string[]>([
+    'Hệ thống phân làn xe buýt điện thông minh',
+    'Trạm sạc xe điện kết hợp cafe năng lượng mặt trời',
+    'Bản đồ mật độ giao thông đô thị thời gian thực',
+    'Ứng dụng gọi xe đạp công cộng qua QR Code'
+  ]);
+  const [teacherVotingScores, setTeacherVotingScores] = useState<Record<string, number>>({});
+  const [teacherVotingTimeLeft, setTeacherVotingTimeLeft] = useState<number>(120);
+  const [teacherVotedUsersCount, setTeacherVotedUsersCount] = useState<number>(0);
+  const teacherVotingTimerRef = useRef<any>(null);
+  const votingScoresRef = useRef<Record<string, number>>({});
 
   // Load settings
   const loadSettings = useCallback(async () => {
@@ -112,6 +126,119 @@ export default function TeacherPage() {
       supabase.removeChannel(channel);
     };
   }, [mounted]);
+
+  // Game 11: Realtime event listener for student votes
+  useEffect(() => {
+    if (!mounted) return;
+    const channel = supabase.channel('idea_voting_global', {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+
+    channel
+      .on('broadcast', { event: 'request_voting_state' }, () => {
+        if (teacherVotingState !== 'idle') {
+          const endTime = Date.now() + (teacherVotingTimeLeft * 1000);
+          channel.send({
+            type: 'broadcast',
+            event: 'sync_voting_state',
+            payload: {
+              ideas: teacherVotingIdeas.map((label, idx) => ({ id: `idea_${idx}`, label })),
+              endTime,
+              state: teacherVotingState,
+              scores: votingScoresRef.current
+            }
+          });
+        }
+      })
+      .on('broadcast', { event: 'submit_vote' }, ({ payload }: { payload: any }) => {
+        const { votes } = payload;
+        if (teacherVotingState === 'active') {
+          const nextScores = { ...votingScoresRef.current };
+          if (votes[0]) nextScores[votes[0]] = (nextScores[votes[0]] || 0) + 3;
+          if (votes[1]) nextScores[votes[1]] = (nextScores[votes[1]] || 0) + 2;
+          if (votes[2]) nextScores[votes[2]] = (nextScores[votes[2]] || 0) + 1;
+          
+          votingScoresRef.current = nextScores;
+          setTeacherVotingScores(nextScores);
+          setTeacherVotedUsersCount((prev) => prev + 1);
+
+          channel.send({
+            type: 'broadcast',
+            event: 'update_leaderboard',
+            payload: { scores: nextScores }
+          });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [mounted, teacherVotingState, teacherVotingIdeas, teacherVotingTimeLeft]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (teacherVotingTimerRef.current) clearInterval(teacherVotingTimerRef.current);
+    };
+  }, []);
+
+  const startIdeaVoting = () => {
+    setTeacherVotingState('active');
+    setTeacherVotedUsersCount(0);
+    setTeacherVotingTimeLeft(120);
+    
+    const initialScores: Record<string, number> = {};
+    teacherVotingIdeas.forEach((_, idx) => {
+      initialScores[`idea_${idx}`] = 0;
+    });
+    setTeacherVotingScores(initialScores);
+    votingScoresRef.current = initialScores;
+
+    const endTime = Date.now() + 120000;
+    
+    const channel = supabase.channel('idea_voting_global');
+    channel.send({
+      type: 'broadcast',
+      event: 'start_voting',
+      payload: {
+        ideas: teacherVotingIdeas.map((label, idx) => ({ id: `idea_${idx}`, label })),
+        endTime,
+        state: 'voting',
+        scores: initialScores
+      }
+    });
+
+    if (teacherVotingTimerRef.current) clearInterval(teacherVotingTimerRef.current);
+    teacherVotingTimerRef.current = setInterval(() => {
+      setTeacherVotingTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(teacherVotingTimerRef.current);
+          setTeacherVotingState('ended');
+          const finalChan = supabase.channel('idea_voting_global');
+          finalChan.send({
+            type: 'broadcast',
+            event: 'close_voting'
+          });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const closeIdeaVoting = () => {
+    setTeacherVotingState('ended');
+    if (teacherVotingTimerRef.current) clearInterval(teacherVotingTimerRef.current);
+    
+    const channel = supabase.channel('idea_voting_global');
+    channel.send({
+      type: 'broadcast',
+      event: 'close_voting'
+    });
+  };
 
   // Word Cloud calculation
   const getWordCloudWords = () => {
@@ -535,7 +662,7 @@ export default function TeacherPage() {
           <div className="flex justify-between items-center mb-sm">
             <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider">Trò chơi Tuần {settings.currentWeek}</h3>
             <span className="bg-primary-container text-on-primary-container text-[11px] font-bold px-2 py-0.5 rounded-full">
-              {settings.currentWeek === 2 || settings.currentWeek === 9 ? 'Có thể tùy biến' : 'Cố định'}
+              {settings.currentWeek === 2 || settings.currentWeek === 9 || settings.currentWeek === 11 ? 'Có thể tùy biến' : 'Cố định'}
             </span>
           </div>
 
@@ -560,13 +687,13 @@ export default function TeacherPage() {
         </section>
 
         {/* Game Customisation Card */}
-        {mounted && (settings.currentWeek === 2 || settings.currentWeek === 4 || settings.currentWeek === 9 || settings.currentWeek === 6) && (
+        {mounted && (settings.currentWeek === 2 || settings.currentWeek === 4 || settings.currentWeek === 9 || settings.currentWeek === 6 || settings.currentWeek === 11) && (
           <section className="bg-white p-lg rounded-xxl shadow-sm border border-outline-variant/20 animate-fade-in-up mt-sm">
             <h4 className="text-sm font-bold text-on-surface mb-sm flex items-center gap-1">
               <span className="material-symbols-outlined text-[18px] text-primary">
-                {settings.currentWeek === 6 ? 'casino' : 'edit_note'}
+                {settings.currentWeek === 6 || settings.currentWeek === 11 ? 'casino' : 'edit_note'}
               </span>
-              {settings.currentWeek === 6 ? 'Điều khiển Thử thách: Giơ tay trả lời' : `Tùy biến câu hỏi tuần ${settings.currentWeek}`}
+              {settings.currentWeek === 6 ? 'Điều khiển Thử thách: Giơ tay trả lời' : settings.currentWeek === 11 ? 'Điều khiển: Bình chọn ý tưởng' : `Tùy biến câu hỏi tuần ${settings.currentWeek}`}
             </h4>
             
             {settings.currentWeek === 2 && (
@@ -794,6 +921,137 @@ export default function TeacherPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+            {settings.currentWeek === 11 && (
+              <div className="space-y-md">
+                <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">Quản lý Bình chọn Ý tưởng (Tuần 11)</label>
+                
+                {teacherVotingState === 'idle' ? (
+                  <div className="space-y-sm">
+                    <p className="text-xs text-on-surface-variant font-medium">Nhập danh sách các ý tưởng thảo luận từ các nhóm để cả lớp bình chọn:</p>
+                    
+                    <div className="space-y-xs">
+                      {teacherVotingIdeas.map((idea, idx) => (
+                        <div key={idx} className="flex gap-sm items-center">
+                          <span className="text-xs font-black text-primary w-16">Nhóm {idx + 1}:</span>
+                          <input
+                            type="text"
+                            value={idea}
+                            onChange={(e) => {
+                              const updated = [...teacherVotingIdeas];
+                              updated[idx] = e.target.value;
+                              setTeacherVotingIdeas(updated);
+                            }}
+                            className="flex-1 px-md py-xs rounded-xl border border-outline-variant/40 text-xs focus:outline-none focus:border-primary bg-surface-container-low"
+                            placeholder={`Ý tưởng của Nhóm ${idx + 1}...`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = teacherVotingIdeas.filter((_, i) => i !== idx);
+                              setTeacherVotingIdeas(updated);
+                            }}
+                            className="text-error hover:scale-110 active:scale-90 transition-transform p-1"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="flex gap-sm pt-xs">
+                      <button
+                        type="button"
+                        onClick={() => setTeacherVotingIdeas([...teacherVotingIdeas, ''])}
+                        className="flex-1 py-sm bg-surface-container-high text-primary text-xs font-bold rounded-xl active:scale-95 transition-all"
+                      >
+                        ➕ Thêm Ý Tưởng
+                      </button>
+                      <button
+                        type="button"
+                        onClick={startIdeaVoting}
+                        disabled={teacherVotingIdeas.filter(i => i.trim()).length < 2}
+                        className="flex-1 py-sm bg-primary text-on-primary text-xs font-black rounded-xl active:scale-95 disabled:opacity-40 transition-all shadow-md animate-pop-in"
+                      >
+                        🚀 Bắt Đầu Bình Chọn
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-md bg-surface-container-low p-md rounded-2xl border border-outline-variant/20">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${teacherVotingState === 'active' ? 'bg-emerald-100 text-emerald-800 animate-pulse' : 'bg-outline-variant text-on-surface-variant'}`}>
+                          ● {teacherVotingState === 'active' ? 'ĐANG BÌNH CHỌN' : 'ĐÃ ĐÓNG'}
+                        </span>
+                        {teacherVotingState === 'active' && (
+                          <span className="text-xs font-bold text-error ml-2">
+                            Còn lại: {Math.floor(teacherVotingTimeLeft / 60)}:{(teacherVotingTimeLeft % 60).toString().padStart(2, '0')}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs font-bold text-on-surface-variant">
+                        👤 {teacherVotedUsersCount} học viên đã bình chọn
+                      </span>
+                    </div>
+
+                    {/* Live Leaderboard */}
+                    <div className="space-y-sm">
+                      <h5 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Bảng xếp hạng ý tưởng thực tế:</h5>
+                      <div className="space-y-xs">
+                        {teacherVotingIdeas
+                          .map((idea, idx) => ({
+                            id: `idea_${idx}`,
+                            label: idea || `Ý tưởng Nhóm ${idx + 1}`,
+                            score: teacherVotingScores[`idea_${idx}`] || 0
+                          }))
+                          .sort((a, b) => b.score - a.score)
+                          .map((item, index) => {
+                            const maxScore = Math.max(...Object.values(teacherVotingScores), 1);
+                            const percent = Math.min((item.score / maxScore) * 100, 100);
+                            return (
+                              <div key={item.id} className="space-y-1">
+                                <div className="flex justify-between text-xs font-medium">
+                                  <span className="truncate max-w-[280px]">
+                                    <span className="font-bold text-primary mr-1">#{index + 1}</span> {item.label}
+                                  </span>
+                                  <span className="font-black text-primary">{item.score} điểm</span>
+                                </div>
+                                <div className="h-2 w-full bg-outline-variant/20 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-sm pt-xs">
+                      {teacherVotingState === 'active' && (
+                        <button
+                          type="button"
+                          onClick={closeIdeaVoting}
+                          className="w-full py-sm bg-error text-white text-xs font-black rounded-xl active:scale-95 transition-all shadow-md"
+                        >
+                          🔒 Đóng bình chọn sớm
+                        </button>
+                      )}
+                      {teacherVotingState === 'ended' && (
+                        <button
+                          type="button"
+                          onClick={() => setTeacherVotingState('idle')}
+                          className="w-full py-sm bg-primary text-on-primary text-xs font-black rounded-xl active:scale-95 transition-all shadow-md"
+                        >
+                          🔄 Tạo Bình Chọn Mới
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </section>
