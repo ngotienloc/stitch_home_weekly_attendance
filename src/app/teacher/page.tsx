@@ -86,6 +86,11 @@ export default function TeacherPage() {
   const [reflexClicks, setReflexClicks] = useState<{ name: string; time: number }[]>([]);
   const reflexChannelRef = useRef<any>(null);
 
+  // Custom Reset Confirmation Modal states
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
+  const [resetErrorMessage, setResetErrorMessage] = useState<string | null>(null);
+
   // Load settings
   const loadSettings = useCallback(async () => {
     if (isMockEnabled) {
@@ -992,12 +997,12 @@ export default function TeacherPage() {
     persist({ ...settings, sessionOpen: !settings.sessionOpen });
   };
 
-  const handleResetAttendance = async () => {
-    const confirmed = window.confirm(
-      `Cảnh báo: Bạn có chắc chắn muốn xóa toàn bộ điểm danh của Tuần ${settings.currentWeek}? Tất cả sinh viên đã điểm danh tuần này sẽ bị xóa khỏi danh sách và phải điểm danh lại.`
-    );
-    if (!confirmed) return;
+  const handleResetAttendance = () => {
+    setResetConfirmOpen(true);
+  };
 
+  const executeResetAttendance = async () => {
+    setResetConfirmOpen(false);
     try {
       const { error } = await supabase
         .from('check_ins')
@@ -1007,10 +1012,10 @@ export default function TeacherPage() {
       if (error) throw error;
 
       await loadStudents();
-      alert(`Đã đặt lại thành công điểm danh Tuần ${settings.currentWeek}!`);
+      setResetSuccessMessage(`Đã đặt lại thành công điểm danh Tuần ${settings.currentWeek}!`);
     } catch (err) {
       console.error('Failed to reset attendance:', err);
-      alert('Không thể đặt lại điểm danh. Vui lòng thử lại.');
+      setResetErrorMessage('Không thể đặt lại điểm danh. Vui lòng thử lại.');
     }
   };
 
@@ -1929,6 +1934,83 @@ export default function TeacherPage() {
               className="w-full py-md bg-primary text-on-primary font-bold rounded-xl hover:bg-primary/95 transition-all active:scale-95 shadow-md"
             >
               Đóng cửa sổ
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Reset Confirmation Modal */}
+      {resetConfirmOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-surface-container rounded-3xl p-lg max-w-sm w-full border border-outline-variant/30 shadow-2xl animate-pop-in space-y-md">
+            <div className="flex items-center gap-sm text-error">
+              <span className="material-symbols-outlined text-[32px]">warning</span>
+              <h3 className="text-base font-extrabold text-on-surface">Đặt lại điểm danh?</h3>
+            </div>
+            
+            <p className="text-xs font-semibold text-on-surface-variant leading-relaxed">
+              Cảnh báo: Bạn có chắc chắn muốn xóa toàn bộ điểm danh của <span className="text-error font-extrabold">Tuần {settings.currentWeek}</span>? Tất cả sinh viên đã điểm danh tuần này sẽ bị xóa khỏi danh sách và phải điểm danh lại.
+            </p>
+
+            <div className="flex gap-sm pt-xs">
+              <button
+                onClick={() => setResetConfirmOpen(false)}
+                className="flex-1 py-sm bg-surface-container-high border border-outline-variant/30 text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-highest transition-all cursor-pointer active:scale-95"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={executeResetAttendance}
+                className="flex-1 py-sm bg-error text-white font-bold text-xs rounded-xl hover:bg-error/90 transition-all cursor-pointer active:scale-95 shadow-md shadow-error/10"
+              >
+                Xác nhận Đặt lại
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Success Alert Modal */}
+      {resetSuccessMessage && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-surface-container rounded-3xl p-lg max-w-sm w-full border border-outline-variant/30 shadow-2xl animate-pop-in space-y-md text-center">
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
+              <span className="material-symbols-outlined text-[28px]">check_circle</span>
+            </div>
+            
+            <h3 className="text-base font-extrabold text-on-surface">Thành công</h3>
+            <p className="text-xs font-semibold text-on-surface-variant leading-relaxed">
+              {resetSuccessMessage}
+            </p>
+
+            <button
+              onClick={() => setResetSuccessMessage(null)}
+              className="w-full py-sm bg-primary text-on-primary font-bold text-xs rounded-xl hover:bg-primary/95 transition-all cursor-pointer active:scale-95 shadow-md"
+            >
+              Đồng ý
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Error Alert Modal */}
+      {resetErrorMessage && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-surface-container rounded-3xl p-lg max-w-sm w-full border border-outline-variant/30 shadow-2xl animate-pop-in space-y-md text-center">
+            <div className="w-12 h-12 bg-error/10 rounded-full flex items-center justify-center mx-auto text-error">
+              <span className="material-symbols-outlined text-[28px]">error</span>
+            </div>
+            
+            <h3 className="text-base font-extrabold text-on-surface">Đã xảy ra lỗi</h3>
+            <p className="text-xs font-semibold text-on-surface-variant leading-relaxed">
+              {resetErrorMessage}
+            </p>
+
+            <button
+              onClick={() => setResetErrorMessage(null)}
+              className="w-full py-sm bg-primary text-on-primary font-bold text-xs rounded-xl hover:bg-primary/95 transition-all cursor-pointer active:scale-95 shadow-md"
+            >
+              Đồng ý
             </button>
           </div>
         </div>
