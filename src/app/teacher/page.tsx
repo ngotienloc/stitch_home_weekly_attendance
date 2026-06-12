@@ -1941,30 +1941,33 @@ export default function TeacherPage() {
 
       {/* Custom Reset Confirmation Modal */}
       {resetConfirmOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-surface-container rounded-3xl p-lg max-w-sm w-full border border-outline-variant/30 shadow-2xl animate-pop-in space-y-md">
-            <div className="flex items-center gap-sm text-error">
-              <span className="material-symbols-outlined text-[32px]">warning</span>
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-container-lowest rounded-xxl w-full max-w-[400px] shadow-2xl border border-outline-variant/20 overflow-hidden animate-pop-in relative p-lg text-center space-y-lg">
+            <div className="flex flex-col items-center space-y-md">
+              <div className="w-12 h-12 bg-error/10 rounded-full flex items-center justify-center text-error">
+                <span className="material-symbols-outlined text-[28px]">warning</span>
+              </div>
+              
               <h3 className="text-base font-extrabold text-on-surface">Đặt lại điểm danh?</h3>
-            </div>
-            
-            <p className="text-xs font-semibold text-on-surface-variant leading-relaxed">
-              Cảnh báo: Bạn có chắc chắn muốn xóa toàn bộ điểm danh của <span className="text-error font-extrabold">Tuần {settings.currentWeek}</span>? Tất cả sinh viên đã điểm danh tuần này sẽ bị xóa khỏi danh sách và phải điểm danh lại.
-            </p>
+              
+              <p className="text-xs font-semibold text-on-surface-variant leading-relaxed">
+                Cảnh báo: Bạn có chắc chắn muốn xóa toàn bộ điểm danh của <span className="text-error font-extrabold">Tuần {settings.currentWeek}</span>? Tất cả sinh viên đã điểm danh tuần này sẽ bị xóa khỏi danh sách và phải điểm danh lại.
+              </p>
 
-            <div className="flex gap-sm pt-xs">
-              <button
-                onClick={() => setResetConfirmOpen(false)}
-                className="flex-1 py-sm bg-surface-container-high border border-outline-variant/30 text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-highest transition-all cursor-pointer active:scale-95"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                onClick={executeResetAttendance}
-                className="flex-1 py-sm bg-error text-white font-bold text-xs rounded-xl hover:bg-error/90 transition-all cursor-pointer active:scale-95 shadow-md shadow-error/10"
-              >
-                Xác nhận Đặt lại
-              </button>
+              <div className="flex gap-sm w-full pt-xs">
+                <button
+                  onClick={() => setResetConfirmOpen(false)}
+                  className="flex-1 py-sm bg-surface-container-high border border-outline-variant/30 text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-highest transition-all cursor-pointer active:scale-95"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  onClick={executeResetAttendance}
+                  className="flex-1 py-sm bg-error text-white font-bold text-xs rounded-xl hover:bg-error/90 transition-all cursor-pointer active:scale-95 shadow-md shadow-error/10"
+                >
+                  Xác nhận
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1972,46 +1975,50 @@ export default function TeacherPage() {
 
       {/* Custom Success Alert Modal */}
       {resetSuccessMessage && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-surface-container rounded-3xl p-lg max-w-sm w-full border border-outline-variant/30 shadow-2xl animate-pop-in space-y-md text-center">
-            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
-              <span className="material-symbols-outlined text-[28px]">check_circle</span>
-            </div>
-            
-            <h3 className="text-base font-extrabold text-on-surface">Thành công</h3>
-            <p className="text-xs font-semibold text-on-surface-variant leading-relaxed">
-              {resetSuccessMessage}
-            </p>
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-container-lowest rounded-xxl w-full max-w-[400px] shadow-2xl border border-outline-variant/20 overflow-hidden animate-pop-in relative p-lg text-center space-y-lg">
+            <div className="flex flex-col items-center space-y-md">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-[28px]">check_circle</span>
+              </div>
+              
+              <h3 className="text-base font-extrabold text-on-surface">Thành công</h3>
+              <p className="text-xs font-semibold text-on-surface-variant leading-relaxed">
+                {resetSuccessMessage}
+              </p>
 
-            <button
-              onClick={() => setResetSuccessMessage(null)}
-              className="w-full py-sm bg-primary text-on-primary font-bold text-xs rounded-xl hover:bg-primary/95 transition-all cursor-pointer active:scale-95 shadow-md"
-            >
-              Đồng ý
-            </button>
+              <button
+                onClick={() => setResetSuccessMessage(null)}
+                className="w-full py-sm bg-primary text-on-primary font-bold text-xs rounded-xl hover:bg-primary/95 transition-all cursor-pointer active:scale-95 shadow-md"
+              >
+                Đồng ý
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Custom Error Alert Modal */}
       {resetErrorMessage && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-surface-container rounded-3xl p-lg max-w-sm w-full border border-outline-variant/30 shadow-2xl animate-pop-in space-y-md text-center">
-            <div className="w-12 h-12 bg-error/10 rounded-full flex items-center justify-center mx-auto text-error">
-              <span className="material-symbols-outlined text-[28px]">error</span>
-            </div>
-            
-            <h3 className="text-base font-extrabold text-on-surface">Đã xảy ra lỗi</h3>
-            <p className="text-xs font-semibold text-on-surface-variant leading-relaxed">
-              {resetErrorMessage}
-            </p>
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-container-lowest rounded-xxl w-full max-w-[400px] shadow-2xl border border-outline-variant/20 overflow-hidden animate-pop-in relative p-lg text-center space-y-lg">
+            <div className="flex flex-col items-center space-y-md">
+              <div className="w-12 h-12 bg-error/10 rounded-full flex items-center justify-center text-error">
+                <span className="material-symbols-outlined text-[28px]">error</span>
+              </div>
+              
+              <h3 className="text-base font-extrabold text-on-surface">Đã xảy ra lỗi</h3>
+              <p className="text-xs font-semibold text-on-surface-variant leading-relaxed">
+                {resetErrorMessage}
+              </p>
 
-            <button
-              onClick={() => setResetErrorMessage(null)}
-              className="w-full py-sm bg-primary text-on-primary font-bold text-xs rounded-xl hover:bg-primary/95 transition-all cursor-pointer active:scale-95 shadow-md"
-            >
-              Đồng ý
-            </button>
+              <button
+                onClick={() => setResetErrorMessage(null)}
+                className="w-full py-sm bg-primary text-on-primary font-bold text-xs rounded-xl hover:bg-primary/95 transition-all cursor-pointer active:scale-95 shadow-md"
+              >
+                Đồng ý
+              </button>
+            </div>
           </div>
         </div>
       )}
