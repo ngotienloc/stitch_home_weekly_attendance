@@ -871,6 +871,8 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
         setBombHolderId(newHolderId);
         setBombQuestion(question);
         setBombTimeLeft(15);
+        setBombCompleted(false);
+        setBombExploded(false);
         setBombStatusText(newHolderId === currentUser.id ? '💣 BẠN ĐANG GIỮ BOM! Trả lời ngay!' : `💣 Quả bom được chuyền tới ${bombActiveUsers[newHolderId]?.name || 'một bạn khác'}`);
       })
       .on('broadcast', { event: 'bomb_exploded' }, ({ payload }: { payload: any }) => {
