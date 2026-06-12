@@ -264,3 +264,13 @@ body {
   animation: dragon-walk 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
+@keyframes spin-blades {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-blades {
+  animation: spin-blades 1.5s linear infinite;
+}
+
+

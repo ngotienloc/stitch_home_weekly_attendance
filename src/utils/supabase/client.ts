@@ -41,7 +41,7 @@ export const ALL_GAMES: Game[] = [
   { id: 10, name: 'Thách đấu 1-1',           icon: '⚔️', description: 'Thi đấu trực tiếp với bạn ngồi cạnh.',             points: 25, colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 10 },
   { id: 11, name: 'Bình chọn ý tưởng',       icon: '💡', description: 'Bình chọn ý tưởng hay nhất từ các nhóm.',          points: 10, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 11 },
   { id: 12, name: 'Nộp bài nhanh',           icon: '📝', description: 'Nộp bài tập trước giờ học kết thúc.',              points: 10, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 12 },
-  { id: 13, name: 'Kể chuyện 30 giây',       icon: '🎤', description: 'Thuyết trình ngắn về điều học được hôm nay.',       points: 15, colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 13 },
+  { id: 13, name: 'Lắp ráp Tuabin gió',       icon: '🌪️', description: 'Thi đấu trắc nghiệm 1v1 lắp ráp hệ thống tuabin gió phát điện nhanh nhất!', points: 15, colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 13 },
   { id: 14, name: 'Bonus tuần đặc biệt',     icon: '⭐', description: 'Điểm thưởng đặc biệt, chỉ mở vào tuần quan trọng!',points: 50, colorClass: 'bg-secondary-fixed',     enabled: true,  order: 14 },
   { id: 15, name: 'Đại chiến phản xạ',       icon: '⚡', description: 'Chờ màn hình chuyển màu xanh và nhấn nút phản xạ nhanh nhất lớp!', points: 15, colorClass: 'bg-tertiary-fixed',      enabled: true,  order: 15 },
   { id: 16, name: 'Chia sẻ học được gì',     icon: '💬', description: 'Chia sẻ điều mới học được với cả lớp hôm nay.',    points: 5,  colorClass: 'bg-primary-fixed-dim',  enabled: true,  order: 16 },

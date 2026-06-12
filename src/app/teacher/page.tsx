@@ -69,7 +69,7 @@ export default function TeacherPage() {
   // Game 5 (Kẻ giả mạo) states
   const [undercoverStep, setUndercoverStep] = useState<'idle' | 'describing' | 'voting' | 'ended'>('idle');
   const [undercoverGroupSelected, setUndercoverGroupSelected] = useState<string>('Nhóm 1');
-  const [undercoverKeywordPair, setUndercoverKeywordPair] = useState<{ normal: string; undercover: string }>({ normal: 'React', undercover: 'Vue' });
+  const [undercoverKeywordPair, setUndercoverKeywordPair] = useState<{ normal: string; undercover: string }>({ normal: 'Bản vẽ 2D', undercover: 'Mô hình 3D' });
   const [undercoverAssignments, setUndercoverAssignments] = useState<{ [id: string]: 'normal' | 'undercover' | 'mrwhite' }>({});
   const [undercoverGroupMembers, setUndercoverGroupMembers] = useState<{ id: string; name: string }[]>([]);
   const [undercoverDescriptions, setUndercoverDescriptions] = useState<{ [id: string]: { name: string; desc: string } }>({});
@@ -1347,7 +1347,7 @@ export default function TeacherPage() {
                       }}
                       className="w-full p-sm text-xs rounded-xl border border-outline-variant/40 bg-surface-container-low focus:border-primary outline-none"
                     >
-                      {['Nhóm 1', 'Nhóm 2', 'Nhóm 3', 'Nhóm 4', 'Nhóm 5'].map(g => (
+                      {['Nhóm 1', 'Nhóm 2', 'Nhóm 3', 'Nhóm 5', 'Nhóm 6', 'Nhóm 7', 'Nhóm 8', 'Nhóm 9', 'Nhóm 10', 'Nhóm 11', 'Nhóm 12', 'Nhóm 13'].map(g => (
                         <option key={g} value={g}>{g}</option>
                       ))}
                     </select>
@@ -1363,9 +1363,11 @@ export default function TeacherPage() {
                       }}
                       className="w-full p-sm text-xs rounded-xl border border-outline-variant/40 bg-surface-container-low focus:border-primary outline-none"
                     >
-                      <option value="React-Vue">React / Vue</option>
-                      <option value="Python-Java">Python / Java</option>
-                      <option value="SQL-NoSQL">SQL / NoSQL</option>
+                      <option value="Bản vẽ 2D-Mô hình 3D">Bản vẽ 2D / Mô hình 3D</option>
+                      <option value="Tiêu chí-Ràng buộc">Tiêu chí / Ràng buộc</option>
+                      <option value="Mẫu thử-Thành phẩm">Mẫu thử / Thành phẩm</option>
+                      <option value="Đầu vào-Đầu ra">Đầu vào / Đầu ra</option>
+                      <option value="Pin mặt trời-Tuabin gió">Pin mặt trời / Tuabin gió</option>
                     </select>
                   </div>
                 </div>

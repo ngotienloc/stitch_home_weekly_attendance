@@ -137,13 +137,13 @@ export default function HandbookModal({ onClose, onStartTour }: Props) {
     },
     13: {
       steps: [
-        'Hệ thống bắt đầu đếm ngược 30 giây ngay khi bấm chơi.',
-        'Viết một tóm tắt ngắn gọn những gì bạn đã học được hôm nay.',
-        'Nêu lên tối thiểu 1 kiến thức hoặc khái niệm cốt lõi.',
-        'Nộp bài trước khi hết giờ nhận +15đ, nộp muộn nhận +5đ.'
+        'Hệ thống tìm kiếm một đối thủ ngẫu nhiên cùng lớp để ghép cặp 1v1.',
+        'Đấu trắc nghiệm tư duy công nghệ & thiết kế kỹ thuật gồm 5 câu hỏi.',
+        'Mỗi đáp án đúng lắp ráp thành công 1 bộ phận của Tuabin gió.',
+        'Người hoàn thành Tuabin trước hoặc lắp ráp được nhiều phần hơn sẽ thắng (+15đ).'
       ],
-      tip: 'Nghĩ sẵn nội dung từ trước khi mở game để tiết kiệm thời gian gõ chữ!',
-      demoType: 'speech'
+      tip: 'Kiến thức cốt lõi về cấu trúc hệ thống công nghệ (Đầu vào - Xử lý - Đầu ra) sẽ giúp bạn lắp ráp tuabin nhanh nhất!',
+      demoType: 'turbine'
     },
     14: {
       steps: [
@@ -223,7 +223,7 @@ export default function HandbookModal({ onClose, onStartTour }: Props) {
             <div className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-black px-2 py-0.5 rounded-full mb-1">
               DÂN THƯỜNG
             </div>
-            <span className="text-xs font-bold text-on-surface">Từ bí mật: <b>Prototype</b></span>
+            <span className="text-xs font-bold text-on-surface">Từ bí mật: <b>Mẫu thử (Prototype)</b></span>
           </div>
         );
       case 'hand':
@@ -282,15 +282,13 @@ export default function HandbookModal({ onClose, onStartTour }: Props) {
             <span className="text-success font-black ml-auto">✓ ĐÃ NỘP</span>
           </div>
         );
-      case 'speech':
+      case 'turbine':
         return (
           <div className="flex flex-col items-center gap-xs">
-            <div className="w-8 h-8 rounded-full border border-primary flex items-center justify-center bg-primary/5">
-              <span className="material-symbols-outlined text-sm text-primary animate-pulse">mic</span>
+            <div className="relative w-12 h-12 flex flex-col justify-end items-center mx-auto border border-primary/20 rounded bg-primary/5">
+              <span className="text-xl animate-spin-blades">🌪️</span>
             </div>
-            <div className="w-16 h-1 bg-outline-variant/30 rounded overflow-hidden">
-              <div className="bg-primary h-full animate-pulse" style={{ width: '80%' }} />
-            </div>
+            <span className="text-[8px] text-primary font-black uppercase">Tuabin Gió</span>
           </div>
         );
       case 'gift':

@@ -93,6 +93,18 @@ const BATTLE_QUESTIONS = [
   { q: "Thiết kế công nghiệp (Industrial Design) chú trọng nhất vào khía cạnh nào?", opts: ["Độ bền kéo và ứng suất của khung kim loại bên trong", "Tính thẩm mỹ, trải nghiệm người dùng và công năng sử dụng thực tế", "Giá thành nguyên liệu rẻ nhất có thể", "Phương thức đóng gói vận chuyển bằng container"], ans: 1 }
 ];
 
+const TURBINE_QUESTIONS = [
+  { q: "Mục tiêu cốt lõi của một hệ thống Tuabin gió phát điện là gì?", opts: ["Chuyển đổi nhiệt năng thành điện năng", "Chuyển đổi động năng của gió thành điện năng", "Làm mát môi trường xung quanh", "Tạo ra gió nhân tạo cho nông nghiệp"], ans: 1 },
+  { q: "Bộ phận nào của tuabin gió chịu trách nhiệm biến đổi chuyển động quay của trục thành dòng điện?", opts: ["Hộp số (Gearbox)", "Hệ thống phanh (Brake)", "Máy phát điện (Generator)", "Cánh quạt (Blades)"], ans: 2 },
+  { q: "Yếu tố nào sau đây được coi là một 'ràng buộc kỹ thuật' (Constraint) khi lắp đặt tuabin gió ngoài khơi?", opts: ["Vẻ đẹp thẩm mỹ khi nhìn từ xa", "Khả năng chống ăn mòn của nước biển và chi phí làm móng dưới sâu", "Sự đồng thuận của khách du lịch", "Màu sơn của cánh quạt"], ans: 1 },
+  { q: "Vì sao các cánh quạt tuabin gió thường được thiết kế khí động học thuôn dài giống cánh máy bay?", opts: ["Để giảm tối đa khối lượng vật liệu chế tạo", "Để tăng lực cản của gió lên cánh quạt", "Để tối đa hóa lực nâng khí động học và giảm thiểu lực cản", "Để dễ dàng vận chuyển bằng đường bộ"], ans: 2 },
+  { q: "Bộ phận nào giúp tuabin gió tự động xoay hướng để luôn đón được hướng gió chính diện?", opts: ["Hệ thống định hướng (Yaw Drive)", "Cánh quạt chính (Rotor Blades)", "Trục truyền động (Shaft)", "Móng tuabin (Foundation)"], ans: 0 }
+];
+const ALLOWED_GROUPS = [
+  'Nhóm 1', 'Nhóm 2', 'Nhóm 3', 'Nhóm 5', 'Nhóm 6',
+  'Nhóm 7', 'Nhóm 8', 'Nhóm 9', 'Nhóm 10', 'Nhóm 11',
+  'Nhóm 12', 'Nhóm 13'
+];
 
 const getGameInstructionSteps = (gameId: number): string[] => {
   switch (gameId) {
@@ -183,10 +195,11 @@ const getGameInstructionSteps = (gameId: number): string[] => {
       ];
     case 13:
       return [
-        'Đồng hồ 30 giây sẽ đếm ngược ngay khi trò chơi bắt đầu.',
-        'Hãy tóm tắt ngắn gọn khái niệm hoặc bài học cốt lõi hôm nay.',
-        'Nêu lên tối thiểu một kỹ năng hoặc kiến thức bạn tiếp thu được.',
-        'Gửi câu trả lời trước khi hết giờ để nhận tối đa điểm thưởng.'
+        'Hệ thống sẽ tìm kiếm ngẫu nhiên một bạn học cùng lớp để ghép đối thủ 1v1.',
+        'Hai bên thi đấu trả lời 5 câu hỏi trắc nghiệm liên quan đến thiết kế kỹ thuật.',
+        'Mỗi câu trả lời đúng sẽ giúp bạn lắp ráp được 1 phần của Tuabin gió.',
+        'Ai hoàn thành lắp ráp Tuabin gió trước (4 câu đúng) hoặc có số phần lắp ráp nhiều hơn sau 5 câu sẽ thắng!',
+        'Khi thắng, Tuabin gió của bạn sẽ xoay tít để phát điện cực kỳ đẹp mắt!'
       ];
     case 14:
       return [
@@ -326,14 +339,28 @@ const getGameDemoMockup = (gameId: number) => {
       );
     case 13:
       return (
-        <div className="flex flex-col items-center gap-sm">
-          <div className="w-10 h-10 rounded-full border border-primary flex items-center justify-center bg-primary/5">
-            <span className="material-symbols-outlined text-lg text-primary animate-pulse">mic</span>
+        <div className="flex flex-col items-center bg-secondary-container/5 rounded-2xl border border-secondary-container/20 p-md space-y-xs w-full max-w-[240px]">
+          <div className="flex justify-between items-center w-full text-[10px] text-on-surface-variant font-bold border-b border-outline-variant/10 pb-1">
+            <span>🤖 Opponent (3/4)</span>
+            <span className="text-primary">⚡ Bạn (2/4)</span>
           </div>
-          <div className="w-20 h-1.5 bg-outline-variant/30 rounded-full overflow-hidden">
-            <div className="bg-primary h-full animate-pulse" style={{ width: '85%' }} />
+          <div className="flex justify-around items-center w-full pt-1">
+            {/* Opponent side */}
+            <div className="scale-75 origin-top opacity-80">
+              <div className="relative w-16 h-20 flex flex-col justify-end items-center mx-auto border border-outline-variant/10 rounded-xl bg-slate-900/5 p-1">
+                <span className="text-lg absolute top-2">🌪️</span>
+                <div className="w-10 h-1 bg-stone-500 rounded" />
+              </div>
+            </div>
+            {/* Player side */}
+            <div className="scale-75 origin-top">
+              <div className="relative w-16 h-20 flex flex-col justify-end items-center mx-auto border border-primary/20 rounded-xl bg-primary/5 p-1">
+                <span className="text-lg absolute top-2 animate-spin-blades">🌪️</span>
+                <div className="w-10 h-1 bg-stone-500 rounded" />
+              </div>
+            </div>
           </div>
-          <span className="text-[10px] text-on-surface-variant font-bold">⏱️ 30s tóm tắt</span>
+          <span className="text-[9px] text-primary font-black uppercase bg-primary/10 px-2 py-0.5 rounded-full mt-1">Lắp ráp Tuabin gió</span>
         </div>
       );
     case 14:
@@ -408,10 +435,7 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const [onlineMembers, setOnlineMembers] = useState<{ [id: string]: { name: string; lastSeen: number } }>({});
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('course_team_name');
-      if (saved) setSelectedGroup(saved);
-    }
+    setSelectedGroup(null);
   }, []);
 
   // Matchmaking states & references
@@ -485,6 +509,19 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
   const [reflexLeaderboard, setReflexLeaderboard] = useState<{ name: string; time: number }[]>([]);
   const reflexChannelRef = useRef<any>(null);
 
+  // Game 13 (Lắp ráp Tuabin gió) state
+  const [turbineStep, setTurbineStep] = useState<'searching' | 'playing' | 'ended'>('searching');
+  const [turbineQuestionIdx, setTurbineQuestionIdx] = useState<number>(0);
+  const [turbineSelectedIdx, setTurbineSelectedIdx] = useState<number | null>(null);
+  const [turbineHasSubmitted, setTurbineHasSubmitted] = useState<boolean>(false);
+  const [turbineTimer, setTurbineTimer] = useState<number>(10);
+  const [turbinePlayerParts, setTurbinePlayerParts] = useState<string[]>([]);
+  const [turbineOpponentParts, setTurbineOpponentParts] = useState<string[]>([]);
+  const [turbineOpponentName, setTurbineOpponentName] = useState<string>('Hoàng Nam');
+  const [turbineOpponentAvatar, setTurbineOpponentAvatar] = useState<string>('🤖');
+  const [turbineSearchTimer, setTurbineSearchTimer] = useState<number>(0);
+
+
   // Fetch current profile for matchmaking
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
@@ -530,13 +567,119 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     setTimeout(() => onComplete(p, finalInput || undefined), 1800);
   };
 
-  // Game 13: 30-second countdown
-  useEffect(() => {
-    if (game.id === 13 && !done) {
-      timerRef.current = setInterval(() => setTimer(t => { if (t <= 1) { clearInterval(timerRef.current); return 0; } return t - 1; }), 1000);
+  const handleTurbineAnswer = (idx: number | null) => {
+    if (turbineHasSubmitted) return;
+
+    setTurbineHasSubmitted(true);
+    setTurbineSelectedIdx(idx);
+
+    const currentQuestion = TURBINE_QUESTIONS[turbineQuestionIdx];
+    const isCorrect = idx !== null && idx === currentQuestion.ans;
+
+    const partsOrder = ['foundation', 'tower', 'generator', 'blades'];
+    let nextPlayerParts = [...turbinePlayerParts];
+    if (isCorrect) {
+      const nextPartIndex = turbinePlayerParts.length;
+      if (nextPartIndex < partsOrder.length) {
+        nextPlayerParts.push(partsOrder[nextPartIndex]);
+        setTurbinePlayerParts(nextPlayerParts);
+      }
     }
-    return () => clearInterval(timerRef.current);
-  }, [game.id, done]);
+
+    // Opponent choice simulation
+    const oppCorrect = Math.random() < 0.7;
+    let nextOppParts = [...turbineOpponentParts];
+    if (oppCorrect) {
+      const nextOppPartIndex = turbineOpponentParts.length;
+      if (nextOppPartIndex < partsOrder.length) {
+        nextOppParts.push(partsOrder[nextOppPartIndex]);
+        setTurbineOpponentParts(nextOppParts);
+      }
+    }
+
+    setTimeout(() => {
+      const isGameOver = turbineQuestionIdx >= 4;
+      if (isGameOver) {
+        setTurbineStep('ended');
+        let earnedPts = 10;
+        let resultMsg = 'Thua cuộc';
+        if (nextPlayerParts.length > nextOppParts.length) {
+          earnedPts = 15;
+          resultMsg = 'Thắng cuộc! 🎉';
+        } else if (nextPlayerParts.length === nextOppParts.length) {
+          earnedPts = 12;
+          resultMsg = 'Hòa đối thủ! 🤝';
+        } else {
+          earnedPts = 10;
+          resultMsg = 'Thua đối thủ! 😢';
+        }
+        
+        finish(
+          earnedPts,
+          `Đối kháng với ${turbineOpponentName}: ${resultMsg} (Bạn ráp được ${nextPlayerParts.length}/4 bộ phận, đối thủ ráp được ${nextOppParts.length}/4 bộ phận)`
+        );
+      } else {
+        setTurbineQuestionIdx(prev => prev + 1);
+        setTurbineSelectedIdx(null);
+        setTurbineHasSubmitted(false);
+        setTurbineTimer(10);
+      }
+    }, 2000);
+  };
+
+  // Game 13 lifecycle
+  useEffect(() => {
+    if (game.id === 13) {
+      setTurbineStep('searching');
+      setTurbineSearchTimer(0);
+      setTurbineQuestionIdx(0);
+      setTurbineSelectedIdx(null);
+      setTurbineHasSubmitted(false);
+      setTurbineTimer(10);
+      setTurbinePlayerParts([]);
+      setTurbineOpponentParts([]);
+      
+      const names = ['Nguyễn Hoàng Nam', 'Trần Minh Thu', 'Lê Khánh Vy', 'Phạm Đức Anh', 'Nguyễn Tiến Đạt', 'Mai Phương Thảo'];
+      const avatars = ['🤖', '🎓', '⚡', '🚀', '🔥', '🦊'];
+      const randIdx = Math.floor(Math.random() * names.length);
+      setTurbineOpponentName(names[randIdx]);
+      setTurbineOpponentAvatar(avatars[randIdx]);
+    }
+  }, [game.id]);
+
+  useEffect(() => {
+    if (game.id !== 13 || turbineStep !== 'searching' || showInstruction) return;
+
+    const t = setInterval(() => {
+      setTurbineSearchTimer(prev => {
+        if (prev >= 15) {
+          clearInterval(t);
+          setTurbineStep('playing');
+          return 15;
+        }
+        return prev + 1;
+      });
+    }, 100);
+
+    return () => clearInterval(t);
+  }, [game.id, turbineStep, showInstruction]);
+
+  useEffect(() => {
+    if (game.id !== 13 || turbineStep !== 'playing' || showInstruction || turbineHasSubmitted) return;
+
+    const t = setInterval(() => {
+      setTurbineTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(t);
+          handleTurbineAnswer(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(t);
+  }, [game.id, turbineStep, showInstruction, turbineHasSubmitted, turbineQuestionIdx, turbinePlayerParts, turbineOpponentParts]);
 
   // Game 10: 1v1 duel matching and lifecycle
   useEffect(() => {
@@ -1864,22 +2007,19 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
                     Chọn Nhóm thực tế của bạn học phần này:
                   </p>
                   <div className="grid grid-cols-2 gap-sm max-h-[300px] overflow-y-auto pr-xs">
-                    {Array.from({ length: 10 }).map((_, i) => {
-                      const groupName = `Nhóm ${i + 1}`;
-                      return (
-                        <button
-                          key={groupName}
-                          onClick={() => {
-                            setSelectedGroup(groupName);
-                            localStorage.setItem('course_team_name', groupName);
-                          }}
-                          className="p-md rounded-2xl border border-outline-variant/30 hover:border-primary/50 hover:bg-primary/5 active:scale-95 transition-all text-sm font-extrabold text-on-surface flex flex-col items-center gap-1 cursor-pointer bg-white"
-                        >
-                          <span className="text-2xl">👥</span>
-                          {groupName}
-                        </button>
-                      );
-                    })}
+                    {ALLOWED_GROUPS.map((groupName) => (
+                      <button
+                        key={groupName}
+                        onClick={() => {
+                          setSelectedGroup(groupName);
+                          localStorage.setItem('course_team_name', groupName);
+                        }}
+                        className="p-md rounded-2xl border border-outline-variant/30 hover:border-primary/50 hover:bg-primary/5 active:scale-95 transition-all text-sm font-extrabold text-on-surface flex flex-col items-center gap-1 cursor-pointer bg-white"
+                      >
+                        <span className="text-2xl">👥</span>
+                        {groupName}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
@@ -2062,30 +2202,79 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
 
         // ── GAME 5: Undercover / Mr. White ─────────────────────────────────────────
         if (game.id === 5) {
+          if (!selectedGroup) {
+            return (
+              <Wrap>
+                <div className="space-y-md text-center py-sm">
+                  <div className="bg-surface-container p-md rounded-xl text-center border border-outline-variant/30 mb-md">
+                    <div className="text-5xl mb-xs">🕵️</div>
+                    <h3 className="text-lg font-extrabold text-on-surface">Kẻ giả mạo lớp học</h3>
+                    <p className="text-xs font-medium text-on-surface-variant">Vui lòng chọn nhóm thực tế của bạn để tham gia trò chơi.</p>
+                  </div>
+                  <p className="text-sm font-bold text-on-surface-variant mb-md">
+                    Chọn Nhóm thực tế của bạn học phần này:
+                  </p>
+                  <div className="grid grid-cols-2 gap-sm max-h-[300px] overflow-y-auto pr-xs">
+                    {ALLOWED_GROUPS.map((groupName) => (
+                      <button
+                        key={groupName}
+                        onClick={() => {
+                          setSelectedGroup(groupName);
+                          localStorage.setItem('course_team_name', groupName);
+                        }}
+                        className="p-md rounded-2xl border border-outline-variant/30 hover:border-primary/50 hover:bg-primary/5 active:scale-95 transition-all text-sm font-extrabold text-on-surface flex flex-col items-center gap-1 cursor-pointer bg-white"
+                      >
+                        <span className="text-2xl">👥</span>
+                        {groupName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </Wrap>
+            );
+          }
+
           const isNormal = undercoverRole === 'normal';
           const isUndercover = undercoverRole === 'undercover';
           const isWhite = undercoverRole === 'mrwhite';
           const undercovers = Object.entries(undercoverDescriptions);
 
           const undercoverClues: Record<string, string[]> = {
-            'React': ['Thư viện JS', 'Facebook', 'Virtual DOM', 'Component-based'],
-            'Vue': ['Framework JS', 'Evan You', 'Dễ học', 'Template-based'],
-            'Python': ['Độ thụt lề', 'Đơn giản', 'Trí tuệ nhân tạo', 'Scripting'],
-            'Java': ['Hướng đối tượng', 'JVM', 'Cú pháp nghiêm ngặt', 'Android'],
-            'SQL': ['Truy vấn', 'Bảng dữ liệu', 'Quan hệ', 'Structured'],
-            'NoSQL': ['Không lược đồ', 'Tài liệu', 'Khả năng mở rộng', 'Key-value'],
+            'Bản vẽ 2D': ['Phác thảo trên giấy', 'Dạng phẳng', 'Kích thước dài rộng', 'Trực quan đơn giản'],
+            'Mô hình 3D': ['Không gian ba chiều', 'Có chiều sâu', 'Thiết kế CAD', 'In 3D được'],
+            'Tiêu chí': ['Mong muốn đạt được', 'Yêu cầu sản phẩm', 'Tính năng cần có', 'Mục tiêu thiết kế'],
+            'Ràng buộc': ['Giới hạn chi phí', 'Khống chế thời gian', 'Giới hạn vật liệu', 'Yêu cầu kỹ thuật bắt buộc'],
+            'Mẫu thử': ['Phiên bản ban đầu', 'Để thử nghiệm', 'Có thể chỉnh sửa', 'Chế tạo nhanh'],
+            'Thành phẩm': ['Hoàn thiện cuối cùng', 'Đưa ra thị trường', 'Đạt chuẩn chất lượng', 'Sẵn sàng sử dụng'],
+            'Đầu vào': ['Nguyên liệu ban đầu', 'Năng lượng cung cấp', 'Thông tin tiếp nhận', 'Bắt đầu hệ thống'],
+            'Đầu ra': ['Sản phẩm tạo ra', 'Năng lượng sinh ra', 'Kết quả xử lý', 'Kết thúc hệ thống'],
+            'Pin mặt trời': ['Hấp thụ ánh sáng', 'Hiệu ứng quang điện', 'Năng lượng tái tạo', 'Lắp trên mái nhà'],
+            'Tuabin gió': ['Hấp thụ sức gió', 'Cánh quạt xoay', 'Máy phát điện', 'Năng lượng động lực'],
             '?': ['Tôi không biết', 'Khó đoán', 'Bí ẩn', 'Trừu tượng']
           };
 
-          const options = undercoverClues[undercoverWord || 'React'] || ['Công cụ lập trình', 'Hiện đại', 'Phổ biến', 'Hiệu quả'];
+          const options = undercoverClues[undercoverWord || 'Bản vẽ 2D'] || ['Tư duy công nghệ', 'Thiết kế kỹ thuật', 'Quy trình hệ thống', 'Phát triển sản phẩm'];
 
           return (
             <Wrap>
               <div className="space-y-md">
-                <div className="bg-surface-container p-md rounded-xl text-center border border-outline-variant/30">
+                <div className="bg-surface-container p-md rounded-xl text-center border border-outline-variant/30 relative">
                   <div className="text-5xl mb-xs">🕵️</div>
                   <h3 className="text-lg font-extrabold text-on-surface">Kẻ giả mạo lớp học</h3>
-                  <p className="text-xs font-medium text-on-surface-variant">Nhóm thực tế của bạn: <span className="font-extrabold text-primary">{selectedGroup || 'Chưa thiết lập'}</span></p>
+                  <div className="flex flex-col items-center justify-center gap-1 mt-xs">
+                    <p className="text-xs font-medium text-on-surface-variant">
+                      Nhóm thực tế của bạn: <span className="font-extrabold text-primary">{selectedGroup}</span>
+                    </p>
+                    <button
+                      onClick={() => {
+                        setSelectedGroup(null);
+                        localStorage.removeItem('course_team_name');
+                      }}
+                      className="text-[10px] font-bold text-on-surface-variant hover:text-error hover:underline transition-colors"
+                    >
+                      Thay đổi nhóm 🔄
+                    </button>
+                  </div>
                 </div>
 
                 {undercoverStep === 'waiting' && (
@@ -2711,23 +2900,172 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
           </Wrap>
         );
 
-        // ── GAME 13: 30-second Story ──────────────────────────────────────────────
-        if (game.id === 13) return (
-          <Wrap>
-            <div className="space-y-md">
-              <div className="text-center">
-                <div className={`text-5xl font-extrabold transition-colors ${timer <= 10 ? 'text-error' : 'text-primary'}`}>{timer}s</div>
-                <p className="text-xs text-on-surface-variant">Thời gian còn lại</p>
+        // ── GAME 13: Lắp ráp Tuabin gió ──────────────────────────────────────────────
+        if (game.id === 13) {
+          const currentQuestion = TURBINE_QUESTIONS[turbineQuestionIdx];
+          
+          const renderWindTurbine = (parts: string[]) => {
+            const hasFoundation = parts.includes('foundation');
+            const hasTower = parts.includes('tower');
+            const hasGenerator = parts.includes('generator');
+            const hasBlades = parts.includes('blades');
+
+            return (
+              <div className="relative w-28 h-36 flex flex-col justify-end items-center mx-auto bg-slate-900/10 dark:bg-white/5 rounded-2xl p-sm border border-outline-variant/10">
+                {/* Blades assembly: relative center of rotation */}
+                <div 
+                  className="absolute transition-all duration-500"
+                  style={{ 
+                    bottom: '82px', 
+                    opacity: hasBlades ? 1 : 0.1,
+                    transform: hasBlades ? 'scale(1)' : 'scale(0.8)'
+                  }}
+                >
+                  <div className={`relative w-0 h-0 flex items-center justify-center ${hasBlades ? 'animate-spin-blades' : ''}`}>
+                    {/* Central hub */}
+                    <div className="w-3.5 h-3.5 bg-slate-100 rounded-full border border-slate-400 z-10 shadow-sm" />
+                    {/* Blades */}
+                    <div className="absolute w-1 h-12 bg-white/90 border border-slate-300 rounded-full origin-bottom" style={{ bottom: '0px', transform: 'rotate(0deg)' }} />
+                    <div className="absolute w-1 h-12 bg-white/90 border border-slate-300 rounded-full origin-bottom" style={{ bottom: '0px', transform: 'rotate(120deg)' }} />
+                    <div className="absolute w-1 h-12 bg-white/90 border border-slate-300 rounded-full origin-bottom" style={{ bottom: '0px', transform: 'rotate(240deg)' }} />
+                  </div>
+                </div>
+
+                {/* Generator/Nacelle */}
+                <div 
+                  className="w-7 h-4 bg-slate-400 border border-slate-500 rounded-md shadow-sm z-1 transition-all duration-500"
+                  style={{ 
+                    bottom: '76px', 
+                    position: 'absolute', 
+                    opacity: hasGenerator ? 1 : 0.1,
+                    transform: hasGenerator ? 'translateY(0)' : 'translateY(15px)'
+                  }}
+                />
+
+                {/* Tower */}
+                <div 
+                  className="w-2 bg-gradient-to-r from-slate-200 to-slate-300 border-x border-slate-400 shadow-inner transition-all duration-500"
+                  style={{ 
+                    height: '76px',
+                    opacity: hasTower ? 1 : 0.1,
+                    transform: hasTower ? 'scaleY(1)' : 'scaleY(0)',
+                    transformOrigin: 'bottom'
+                  }}
+                />
+
+                {/* Foundation */}
+                <div 
+                  className="w-16 h-3 bg-stone-500 border border-stone-600 rounded-lg shadow-md transition-all duration-500 z-10"
+                  style={{ 
+                    opacity: hasFoundation ? 1 : 0.1,
+                    transform: hasFoundation ? 'scale(1)' : 'scale(0.5)'
+                  }}
+                />
               </div>
-              <p className="font-semibold text-on-surface text-center">🎤 Kể lại điều bạn học được hôm nay:</p>
-              <textarea value={text} onChange={e => setText(e.target.value)} rows={4} placeholder="Chia sẻ trong 30 giây..."
-                className="w-full p-md rounded-xl border border-outline-variant/40 focus:border-primary outline-none text-sm resize-none bg-surface-container-low" />
-              <Btn disabled={text.trim().length < 5} onClick={() => { clearInterval(timerRef.current); finish(timer > 0 ? 15 : 5); }}>
-                {timer > 0 ? '📤 Nộp trước giờ (+15 điểm)' : '⏱ Nộp muộn (+5 điểm)'}
-              </Btn>
-            </div>
-          </Wrap>
-        );
+            );
+          };
+
+          return (
+            <Wrap>
+              <div className="space-y-md relative overflow-hidden min-h-[360px]">
+                
+                {/* MATCHING / SEARCHING SCREEN */}
+                {turbineStep === 'searching' && (
+                  <div className="text-center py-lg space-y-md animate-pop-in">
+                    <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
+                      <div className="absolute inset-0 border-4 border-primary/20 rounded-full" />
+                      <div className="absolute inset-0 border-4 border-t-primary rounded-full animate-spin" />
+                      <span className="text-3xl">🌪️</span>
+                    </div>
+                    <h4 className="font-extrabold text-on-surface text-base">Đang ghép đối thủ...</h4>
+                    <p className="text-xs text-on-surface-variant font-medium">Tìm kiếm bạn học ngẫu nhiên trong lớp để thi đấu lắp ráp Tuabin gió...</p>
+                  </div>
+                )}
+
+                {/* PLAYING SCREEN */}
+                {turbineStep === 'playing' && (
+                  <div className="space-y-sm">
+                    {/* Top part: The 1v1 split visual comparison */}
+                    <div className="grid grid-cols-2 gap-sm p-xs bg-surface-container-low rounded-2xl border border-outline-variant/20">
+                      
+                      {/* Opponent side */}
+                      <div className="text-center space-y-xs border-r border-outline-variant/10 pr-xs">
+                        <div className="flex justify-center items-center gap-xs">
+                          <span className="text-sm">{turbineOpponentAvatar}</span>
+                          <span className="text-xs font-black text-on-surface-variant truncate max-w-[80px]">{turbineOpponentName}</span>
+                        </div>
+                        {renderWindTurbine(turbineOpponentParts)}
+                        <span className="text-[10px] font-black uppercase text-success">Đã lắp: {turbineOpponentParts.length}/4</span>
+                      </div>
+
+                      {/* Player side */}
+                      <div className="text-center space-y-xs pl-xs">
+                        <div className="flex justify-center items-center gap-xs">
+                          <span className="text-sm">⚡</span>
+                          <span className="text-xs font-black text-primary truncate max-w-[80px]">Bạn</span>
+                        </div>
+                        {renderWindTurbine(turbinePlayerParts)}
+                        <span className="text-[10px] font-black uppercase text-primary">Đã lắp: {turbinePlayerParts.length}/4</span>
+                      </div>
+
+                    </div>
+
+                    {/* Question & Timer Area */}
+                    {currentQuestion && (
+                      <div className="space-y-sm animate-pop-in mt-sm">
+                        <div className="flex justify-between items-center text-xs font-black text-on-surface-variant px-1">
+                          <span>Câu hỏi {turbineQuestionIdx + 1}/5</span>
+                          <span className="flex items-center gap-xs bg-primary/10 px-2 py-0.5 rounded-lg text-primary text-xs font-black">
+                            <span className="material-symbols-outlined text-[12px]">timer</span>
+                            <span>{turbineTimer}s</span>
+                          </span>
+                        </div>
+
+                        <div className="p-sm bg-primary-container/20 rounded-xl border border-primary/20">
+                          <p className="font-bold text-on-surface text-[13px] leading-relaxed">{currentQuestion.q}</p>
+                        </div>
+
+                        <div className="space-y-xs">
+                          {currentQuestion.opts.map((opt: string, idx: number) => {
+                            const isSelected = turbineSelectedIdx === idx;
+                            const isCorrectAnswer = idx === currentQuestion.ans;
+
+                            let btnStyle = 'bg-surface-container border-outline-variant/30 hover:border-primary/40 text-on-surface';
+                            if (turbineHasSubmitted) {
+                              if (isSelected) {
+                                btnStyle = isCorrectAnswer 
+                                  ? 'bg-success text-white border-success' 
+                                  : 'bg-error text-white border-error';
+                              } else if (isCorrectAnswer) {
+                                btnStyle = 'bg-success/20 text-success border-success/40';
+                              } else {
+                                btnStyle = 'bg-surface-container/50 border-outline-variant/10 text-on-surface/50';
+                              }
+                            } else if (isSelected) {
+                              btnStyle = 'bg-primary text-on-primary border-primary';
+                            }
+
+                            return (
+                              <button
+                                key={idx}
+                                disabled={turbineHasSubmitted}
+                                onClick={() => handleTurbineAnswer(idx)}
+                                className={`w-full p-sm rounded-xl text-left text-xs font-bold border transition-all leading-normal cursor-pointer ${btnStyle}`}
+                              >
+                                {opt}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </div>
+            </Wrap>
+          );
+        }
 
         // ── GAME 14: Special Bonus ───────────────────────────────────────────────
         if (game.id === 14) return (
