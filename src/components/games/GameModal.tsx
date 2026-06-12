@@ -85,6 +85,15 @@ const BOMB_QUESTIONS = [
   { q: "Quy trình thiết kế kỹ thuật có đặc điểm cốt lõi nào sau đây?", opts: ["Chỉ đi theo một chiều thẳng, không bao giờ quay lại bước trước", "Là quy trình lặp (Iterative), liên tục cải tiến sau mỗi vòng đánh giá", "Không cần thực hiện bất kỳ nghiên cứu nền tảng lý thuyết nào", "Chỉ được áp dụng trong lĩnh vực cơ khí và chế tạo máy"], ans: 1 }
 ];
 
+const BATTLE_QUESTIONS = [
+  { q: "Quy trình lặp (Iterative process) trong thiết kế kỹ thuật giúp ích gì nhất?", opts: ["Giảm bớt số lượng kỹ sư tham gia dự án", "Tối ưu hóa thiết kế thông qua cải tiến liên tục sau mỗi vòng thử nghiệm", "Rút ngắn thời gian thiết kế xuống còn một ngày", "Loại bỏ hoàn toàn bước lập kế hoạch ban đầu"], ans: 1 },
+  { q: "'Tư duy hệ thống' (Systems Thinking) trong thiết kế công nghệ yêu cầu kỹ sư làm gì?", opts: ["Chỉ tập trung tối đa vào một chi tiết nhỏ cô lập", "Xem xét sản phẩm như tập hợp các thành phần tương tác chặt chẽ", "Luôn sử dụng máy tính cho mọi công đoạn", "Bỏ qua các yếu tố tác động từ môi trường bên ngoài"], ans: 1 },
+  { q: "Bước nào ngay sau bước 'Đề xuất các giải pháp thay thế'?", opts: ["Xác định vấn đề thiết kế", "Lựa chọn phương án tối ưu nhất dựa trên tiêu chí và ràng buộc", "Chế tạo hàng loạt sản phẩm thương mại", "Viết tài liệu hướng dẫn sử dụng sản phẩm"], ans: 1 },
+  { q: "Trong sơ đồ khối hệ thống công nghệ, 'Phản hồi' (Feedback) có vai trò gì?", opts: ["Chuyển đổi năng lượng đầu vào thành đầu ra", "Giúp hệ thống tự điều chỉnh và duy trì sự ổn định dựa trên đầu ra", "Tiêu hao năng lượng dư thừa của hệ thống", "Cung cấp nguồn nguyên liệu thô ban đầu"], ans: 1 },
+  { q: "Thiết kế công nghiệp (Industrial Design) chú trọng nhất vào khía cạnh nào?", opts: ["Độ bền kéo và ứng suất của khung kim loại bên trong", "Tính thẩm mỹ, trải nghiệm người dùng và công năng sử dụng thực tế", "Giá thành nguyên liệu rẻ nhất có thể", "Phương thức đóng gói vận chuyển bằng container"], ans: 1 }
+];
+
+
 const getGameInstructionSteps = (gameId: number): string[] => {
   switch (gameId) {
     case 1:
@@ -97,9 +106,10 @@ const getGameInstructionSteps = (gameId: number): string[] => {
     case 2:
       return [
         'Mỗi sinh viên bắt đầu thử thách với 3 Tim (mạng sống).',
-        'Các câu hỏi trắc nghiệm sẽ lần lượt xuất hiện trực tuyến.',
+        'Các câu hỏi trắc nghiệm sẽ lần lượt xuất hiện, bạn cần chọn đáp án trong 10 giây.',
         'Trả lời sai đáp án hoặc hết giờ trả lời sẽ bị trừ đi 1 Tim.',
-        'Cố gắng sống sót đến câu hỏi cuối cùng để nhận tối đa điểm thưởng!'
+        'Sau mỗi câu trả lời, Rồng con sẽ đi qua cổng để sang cửa ải tiếp theo.',
+        'Cố gắng vượt qua cả 5 câu hỏi hoặc giữ mạng sống để nhận tối đa điểm thưởng!'
       ];
     case 3:
       return [
@@ -218,8 +228,13 @@ const getGameDemoMockup = (gameId: number) => {
     case 2:
       return (
         <div className="flex flex-col items-center p-md bg-secondary-container/5 rounded-2xl border border-secondary-container/20 space-y-sm w-full max-w-[240px]">
-          <div className="flex gap-sm text-3xl">❤️ ❤️ ❤️</div>
-          <span className="text-xs text-on-surface-variant font-bold">Số người còn sống: 24 / 52 học viên</span>
+          <div className="flex gap-xs text-xl">❤️ ❤️ ❤️</div>
+          <span className="text-[10px] text-primary font-black uppercase bg-primary/10 px-2 py-0.5 rounded-full">⏱️ 10s tự động</span>
+          <div className="flex items-center gap-xs text-xs font-bold text-on-surface select-none">
+            <span>🚪 Cửa 1</span>
+            <span className="animate-bounce">🐲</span>
+            <span>➔ 🚪 Cửa 2</span>
+          </div>
         </div>
       );
     case 3:
@@ -433,14 +448,14 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
 
   // Game 2 (Đấu trường sinh tử) state
   const [battleLives, setBattleLives] = useState<number>(3);
-  const [battleStep, setBattleStep] = useState<'waiting' | 'playing' | 'spectating' | 'finished'>('waiting');
-  const [battleQuestion, setBattleQuestion] = useState<{ q: string; opts: string[]; ans: number; idx: number; total: number } | null>(null);
+  const [battleStep, setBattleStep] = useState<'waiting' | 'playing' | 'spectating' | 'finished'>('playing');
   const [battleSelectedIdx, setBattleSelectedIdx] = useState<number | null>(null);
   const [battleHasSubmitted, setBattleHasSubmitted] = useState<boolean>(false);
   const [battleTotalCorrect, setBattleTotalCorrect] = useState<number>(0);
-  const [battleSurvivors, setBattleSurvivors] = useState<{ id: string; name: string; lives: number }[]>([]);
-  const [battleFloatingEmojis, setBattleFloatingEmojis] = useState<{ id: string; emoji: string; left: number }[]>([]);
-  const battleChannelRef = useRef<any>(null);
+  const [battleQuestionIdx, setBattleQuestionIdx] = useState<number>(0);
+  const [battleTimer, setBattleTimer] = useState<number>(10);
+  const [dragonAnimState, setDragonAnimState] = useState<'idle' | 'transition'>('idle');
+  const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean>(false);
 
   // Game 5 (Kẻ giả mạo) state
   const [undercoverWord, setUndercoverWord] = useState<string | null>(null);
@@ -929,78 +944,77 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     return () => clearInterval(t);
   }, [game.id, bombHolderId, bombCompleted, currentUser?.id]);
 
-  // Game 2 (Đấu trường sinh tử) student realtime effect
-  useEffect(() => {
-    if (game.id !== 2 || !currentUser) return;
-
-    const channel = supabase.channel('battle_royale_global', {
-      config: {
-        broadcast: { self: true }
-      }
-    });
-    battleChannelRef.current = channel;
-
-    channel
-      .on('broadcast', { event: 'battle_ping' }, ({ payload }: { payload: any }) => {
-        const { userId, name, lives } = payload;
-        setBattleSurvivors(prev => {
-          const idx = prev.findIndex(s => s.id === userId);
-          const next = [...prev];
-          if (idx >= 0) {
-            next[idx] = { id: userId, name, lives };
-          } else {
-            next.push({ id: userId, name, lives });
-          }
-          return next;
-        });
-      })
-      .on('broadcast', { event: 'start_battle' }, () => {
-        setBattleLives(3);
-        setBattleStep('playing');
-        setBattleTotalCorrect(0);
-        setBattleQuestion(null);
-        setBattleSelectedIdx(null);
-        setBattleHasSubmitted(false);
-      })
-      .on('broadcast', { event: 'battle_question' }, ({ payload }: { payload: any }) => {
-        const { question } = payload;
-        setBattleQuestion(question);
-        setBattleSelectedIdx(null);
-        setBattleHasSubmitted(false);
-      })
-      .on('broadcast', { event: 'battle_emoji' }, ({ payload }: { payload: any }) => {
-        const { emoji } = payload;
-        const newEmojiObj = {
-          id: Math.random().toString(),
-          emoji,
-          left: Math.random() * 80 + 10
-        };
-        setBattleFloatingEmojis(prev => [...prev.slice(-15), newEmojiObj]);
-      })
-      .on('broadcast', { event: 'end_battle' }, () => {
+  const handleBattleAnswer = (idx: number | null) => {
+    if (battleHasSubmitted || dragonAnimState !== 'idle') return;
+    
+    setBattleHasSubmitted(true);
+    setBattleSelectedIdx(idx);
+    
+    const currentQuestion = BATTLE_QUESTIONS[battleQuestionIdx];
+    const isCorrect = idx !== null && idx === currentQuestion.ans;
+    
+    let nextCorrectCount = battleTotalCorrect;
+    let nextLives = battleLives;
+    
+    if (isCorrect) {
+      nextCorrectCount = battleTotalCorrect + 1;
+      setBattleTotalCorrect(nextCorrectCount);
+      setLastAnswerCorrect(true);
+    } else {
+      nextLives = battleLives - 1;
+      setBattleLives(nextLives);
+      setLastAnswerCorrect(false);
+    }
+    
+    setDragonAnimState('transition');
+    
+    setTimeout(() => {
+      setDragonAnimState('idle');
+      const isGameOver = nextLives <= 0 || battleQuestionIdx >= 4;
+      
+      if (isGameOver) {
         setBattleStep('finished');
-        if (battleLives > 0) {
-          finish(15, `Sinh tồn thành công: ${battleLives} Tim (+15đ)`);
-        } else {
-          finish(5, `Bị loại (+5đ)`);
-        }
-      })
-      .subscribe();
-
-    const pingInterval = setInterval(() => {
-      channel.send({
-        type: 'broadcast',
-        event: 'battle_ping',
-        payload: { userId: currentUser.id, name: currentUser.full_name, lives: battleLives }
-      });
+        const earnedPts = nextCorrectCount * 4;
+        finish(earnedPts, `Trả lời đúng ${nextCorrectCount}/5 câu (+${earnedPts}đ)`);
+      } else {
+        setBattleQuestionIdx(prev => prev + 1);
+        setBattleSelectedIdx(null);
+        setBattleHasSubmitted(false);
+        setBattleTimer(10);
+      }
     }, 2000);
+  };
 
-    return () => {
-      supabase.removeChannel(channel);
-      battleChannelRef.current = null;
-      clearInterval(pingInterval);
-    };
-  }, [game.id, currentUser, battleLives]);
+  // Game 2 (Đấu trường sinh tử) offline setup & timer
+  useEffect(() => {
+    if (game.id === 2) {
+      setBattleStep('playing');
+      setBattleLives(3);
+      setBattleQuestionIdx(0);
+      setBattleTotalCorrect(0);
+      setBattleTimer(10);
+      setBattleSelectedIdx(null);
+      setBattleHasSubmitted(false);
+      setDragonAnimState('idle');
+    }
+  }, [game.id]);
+
+  useEffect(() => {
+    if (game.id !== 2 || battleStep !== 'playing' || showInstruction || battleHasSubmitted || dragonAnimState !== 'idle') return;
+
+    const t = setInterval(() => {
+      setBattleTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(t);
+          handleBattleAnswer(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(t);
+  }, [game.id, battleStep, showInstruction, battleHasSubmitted, dragonAnimState, battleQuestionIdx, battleLives, battleTotalCorrect]);
 
   // Game 5 (Kẻ giả mạo) student realtime effect
   useEffect(() => {
@@ -1644,25 +1658,14 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
           );
         }
 
-        // ── GAME 2: Battle Royale ──────────────────────────────────────────────────
+        // ── GAME 2: Đấu trường sinh tử ─────────────────────────────────────────────
         if (game.id === 2) {
-          const isPlaying = battleStep === 'playing';
-          const isSpectating = battleStep === 'spectating';
+          const currentQuestion = BATTLE_QUESTIONS[battleQuestionIdx];
           return (
             <Wrap>
-              <div className="space-y-md relative overflow-hidden">
-                <div className="absolute inset-0 pointer-events-none z-10">
-                  {battleFloatingEmojis.map(fe => (
-                    <div
-                      key={fe.id}
-                      className="absolute bottom-0 text-3xl animate-float-up"
-                      style={{ left: `${fe.left}%` }}
-                    >
-                      {fe.emoji}
-                    </div>
-                  ))}
-                </div>
-
+              <div className="space-y-md relative overflow-hidden min-h-[300px]">
+                
+                {/* Header info: Lives and Timer */}
                 <div className="flex justify-between items-center bg-surface-container p-sm rounded-xl border border-outline-variant/30">
                   <div className="flex gap-xs">
                     {Array.from({ length: 3 }).map((_, i) => (
@@ -1671,58 +1674,49 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
                       </span>
                     ))}
                   </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
-                      {isSpectating ? 'Chế độ khán giả' : `Sống sót: ${battleLives}/3 Tim`}
-                    </p>
+                  <div className="flex items-center gap-xs bg-primary/10 px-2 py-1 rounded-lg text-primary text-xs font-black">
+                    <span className="material-symbols-outlined text-[14px]">timer</span>
+                    <span>{battleTimer}s</span>
                   </div>
                 </div>
 
-                {battleStep === 'waiting' && (
-                  <div className="text-center py-lg space-y-md">
-                    <div className="text-5xl animate-bounce">🦖</div>
-                    <h4 className="font-extrabold text-on-surface">Đấu trường sinh tử</h4>
-                    <p className="text-xs text-on-surface-variant font-semibold">Đang đợi giảng viên bắt đầu trận đấu trắc nghiệm sinh tồn...</p>
-                  </div>
-                )}
-
-                {isPlaying && battleQuestion && (
+                {/* Question Area */}
+                {currentQuestion && (
                   <div className="space-y-sm animate-pop-in">
-                    <div className="flex justify-between items-center text-xs font-bold text-on-surface-variant">
-                      <span>Câu {battleQuestion.idx + 1}/{battleQuestion.total}</span>
+                    <div className="flex justify-between items-center text-xs font-black text-on-surface-variant px-1">
+                      <span>Câu hỏi {battleQuestionIdx + 1}/5</span>
+                      <span className="text-success">Đúng: {battleTotalCorrect}</span>
                     </div>
                     <div className="p-md bg-primary-container/20 rounded-xl border border-primary/20">
-                      <p className="font-bold text-on-surface text-sm">{battleQuestion.q}</p>
+                      <p className="font-bold text-on-surface text-sm leading-relaxed">{currentQuestion.q}</p>
                     </div>
 
                     <div className="space-y-sm">
-                      {battleQuestion.opts.map((opt: string, idx: number) => {
+                      {currentQuestion.opts.map((opt: string, idx: number) => {
                         const isSelected = battleSelectedIdx === idx;
+                        const isCorrectAnswer = idx === currentQuestion.ans;
+                        
+                        let btnStyle = 'bg-surface-container border-outline-variant/30 hover:border-primary/40 text-on-surface';
+                        if (battleHasSubmitted) {
+                          if (isSelected) {
+                            btnStyle = isCorrectAnswer 
+                              ? 'bg-success text-white border-success' 
+                              : 'bg-error text-white border-error';
+                          } else if (isCorrectAnswer) {
+                            btnStyle = 'bg-success/20 text-success border-success/40';
+                          } else {
+                            btnStyle = 'bg-surface-container/50 border-outline-variant/10 text-on-surface/50';
+                          }
+                        } else if (isSelected) {
+                          btnStyle = 'bg-primary text-on-primary border-primary';
+                        }
+
                         return (
                           <button
                             key={idx}
                             disabled={battleHasSubmitted}
-                            onClick={() => {
-                              setBattleSelectedIdx(idx);
-                              setBattleHasSubmitted(true);
-                              const isCorrect = idx === battleQuestion.ans;
-                              if (isCorrect) {
-                                setBattleTotalCorrect(prev => prev + 1);
-                              } else {
-                                setBattleLives(prev => {
-                                  const next = prev - 1;
-                                  if (next <= 0) {
-                                    setBattleStep('spectating');
-                                  }
-                                  return next;
-                                });
-                              }
-                            }}
-                            className={`w-full p-sm rounded-xl text-left text-sm font-medium border transition-all ${
-                              isSelected 
-                                ? 'bg-primary text-on-primary border-primary' 
-                                : 'bg-surface-container border-outline-variant/30 hover:border-primary/40'
-                            }`}
+                            onClick={() => handleBattleAnswer(idx)}
+                            className={`w-full p-sm rounded-xl text-left text-xs font-bold border transition-all leading-normal cursor-pointer ${btnStyle}`}
                           >
                             {opt}
                           </button>
@@ -1732,44 +1726,39 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
                   </div>
                 )}
 
-                {isSpectating && (
-                  <div className="text-center py-md space-y-md">
-                    <div className="text-5xl animate-pulse">💀</div>
-                    <h4 className="font-extrabold text-error">Bạn đã bị loại!</h4>
-                    <p className="text-xs text-on-surface-variant">Nhưng bạn vẫn có thể thả biểu cảm để cổ vũ:</p>
-                    <div className="flex justify-center gap-sm">
-                      {['🎉', '🔥', '💀', '👏', '💥', '👻'].map(emoji => (
-                        <button
-                          key={emoji}
-                          onClick={() => {
-                            battleChannelRef.current?.send({
-                              type: 'broadcast',
-                              event: 'battle_emoji',
-                              payload: { emoji }
-                            });
-                          }}
-                          className="w-12 h-12 text-2xl bg-surface-container rounded-full active:scale-95 hover:scale-105 transition-all shadow-md flex items-center justify-center cursor-pointer border border-outline-variant/20"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
+                {/* Dragon transition overlay */}
+                {dragonAnimState === 'transition' && (
+                  <div className="absolute inset-0 bg-primary/95 flex flex-col items-center justify-center z-30 text-white animate-fade-in space-y-md p-lg text-center rounded-xxl">
+                    <div className="text-xl font-extrabold tracking-wide uppercase">
+                      {lastAnswerCorrect ? 'Chính xác! 🎉' : 'Sai rồi! 😢'}
                     </div>
+                    
+                    {/* Gate transition scene */}
+                    <div className="relative w-full h-32 bg-white/10 rounded-2xl border border-white/20 overflow-hidden flex items-center justify-between px-lg mt-md">
+                      {/* Left side: starting gate */}
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs font-black bg-white/20 px-2 py-0.5 rounded-full mb-1">Cửa {battleQuestionIdx + 1}</span>
+                        <span className="text-4xl">🚪</span>
+                      </div>
+                      
+                      {/* Middle: Dragon walking */}
+                      <div className="absolute left-0 right-0 flex justify-center items-center h-full">
+                        <span className="text-5xl animate-dragon-walk select-none">🐲</span>
+                      </div>
+                      
+                      {/* Right side: target gate */}
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs font-black bg-white/20 px-2 py-0.5 rounded-full mb-1">Cửa {battleQuestionIdx + 2}</span>
+                        <span className="text-4xl text-yellow-300">🚪</span>
+                      </div>
+                    </div>
+                    
+                    <p className="text-sm font-semibold animate-pulse mt-md">
+                      {lastAnswerCorrect ? 'Rồng vượt ải thành công! 🚀' : 'Rồng bị trúng độc! 😢'}
+                    </p>
                   </div>
                 )}
 
-                {(isPlaying || isSpectating) && (
-                  <div className="space-y-xs pt-xs border-t border-outline-variant/20">
-                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-on-surface-variant">Sinh viên đang sinh tồn ({battleSurvivors.filter(s => s.lives > 0).length})</p>
-                    <div className="grid grid-cols-2 gap-xs max-h-24 overflow-y-auto p-1 bg-surface-container-low rounded-xl">
-                      {battleSurvivors.filter(s => s.lives > 0).map((s, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-xs text-xs font-semibold bg-surface-container rounded-lg">
-                          <span className="truncate max-w-[80px]">{s.name}</span>
-                          <span className="text-xs">{'❤️'.repeat(s.lives)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </Wrap>
           );
