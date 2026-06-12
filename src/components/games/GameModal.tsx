@@ -85,11 +85,272 @@ const BOMB_QUESTIONS = [
   { q: "Quy trình thiết kế kỹ thuật có đặc điểm cốt lõi nào sau đây?", opts: ["Chỉ đi theo một chiều thẳng, không bao giờ quay lại bước trước", "Là quy trình lặp (Iterative), liên tục cải tiến sau mỗi vòng đánh giá", "Không cần thực hiện bất kỳ nghiên cứu nền tảng lý thuyết nào", "Chỉ được áp dụng trong lĩnh vực cơ khí và chế tạo máy"], ans: 1 }
 ];
 
+const getGameInstructionSteps = (gameId: number): string[] => {
+  switch (gameId) {
+    case 1:
+      return [
+        'Quả bom sẽ ngẫu nhiên xuất hiện trên màn hình của một sinh viên.',
+        'Nếu bạn đang giữ bom, bạn phải trả lời đúng câu hỏi trắc nghiệm hiển thị trên màn hình.',
+        'Chọn đúng để chuyền bom sang một bạn ngẫu nhiên khác và giải thoát.',
+        'Nếu đồng hồ đếm ngược (15 giây) về 0, bom sẽ phát nổ!'
+      ];
+    case 2:
+      return [
+        'Mỗi sinh viên bắt đầu thử thách với 3 Tim (mạng sống).',
+        'Các câu hỏi trắc nghiệm sẽ lần lượt xuất hiện trực tuyến.',
+        'Trả lời sai đáp án hoặc hết giờ trả lời sẽ bị trừ đi 1 Tim.',
+        'Cố gắng sống sót đến câu hỏi cuối cùng để nhận tối đa điểm thưởng!'
+      ];
+    case 3:
+      return [
+        'Giảng viên sẽ trình chiếu mã QR động lên máy chiếu lớp học.',
+        'Bấm bắt đầu để mở camera trên điện thoại của bạn.',
+        'Quét trực tiếp mã QR đang hiển thị trên máy chiếu.',
+        'Hệ thống sẽ xác nhận và ghi nhận điểm danh chuyên cần.'
+      ];
+    case 4:
+      return [
+        'Chọn đúng Nhóm học tập của bạn ở góc trên cùng.',
+        'Thảo luận ý tưởng cùng đồng đội qua khung chat nhóm thời gian thực.',
+        'Đóng góp các note ý kiến thiết kế lên bảng thảo luận chung.',
+        'Nộp giải pháp cuối cùng. Khi 1 người nộp, cả nhóm sẽ được tính hoàn thành!'
+      ];
+    case 5:
+      return [
+        'Mỗi người chơi nhận một từ khóa bí mật. Kẻ giả mạo nhận từ hơi khác.',
+        'Lần lượt viết mô tả ngắn gọn về từ khóa của bạn để mọi người phân tích.',
+        'Đọc kỹ mô tả từ các bạn học khác để nhận diện ai đáng nghi nhất.',
+        'Tiến hành bỏ phiếu vote để tìm ra Kẻ giả mạo lớp học.'
+      ];
+    case 6:
+      return [
+        'Khi giảng viên đặt một câu hỏi mở bất ngờ trong giờ học.',
+        'Biểu tượng nút bấm Giơ Tay khổng lồ sẽ sáng lên.',
+        'Hãy nhanh tay chạm vào biểu tượng "Giơ Tay ✋" nhanh nhất có thể.',
+        'Thời gian phản xạ của bạn sẽ quyết định thứ tự ưu tiên trả lời và điểm số!'
+      ];
+    case 7:
+      return [
+        'Đọc các câu hỏi phản hồi nhanh cuối buổi học.',
+        'Đánh giá bài học hôm nay bằng số sao từ 1 đến 5.',
+        'Nhập nhận xét hoặc ý kiến xây dựng đóng góp để giảng viên nâng cao chất lượng.',
+        'Gửi phiếu khảo sát để hoàn thành điểm chuyên cần tuần học.'
+      ];
+    case 8:
+      return [
+        'Đi học chuyên cần và điểm danh đều đặn qua từng tuần.',
+        'Mỗi tuần có mặt liên tiếp sẽ tăng chuỗi ngày điểm danh (Streak 🔥).',
+        'Streak càng cao sẽ nhân thêm điểm thưởng điểm danh cho tuần đó.',
+        'Giữ vững chuỗi streak để tối đa hóa điểm số quá trình cuối kỳ!'
+      ];
+    case 9:
+      return [
+        'Trò chơi nối từ trực tuyến cùng các bạn trong lớp học.',
+        'Hệ thống hiển thị thuật ngữ kỹ thuật khởi đầu.',
+        'Bạn cần nhanh tay chọn từ tiếp theo bắt đầu bằng chữ cái cuối của từ trước.',
+        'Trả lời đúng và nhanh nhất để nhận trọn vẹn điểm thưởng nối từ.'
+      ];
+    case 10:
+      return [
+        'Hệ thống tự động ghép cặp 1v1 ngẫu nhiên với một bạn cùng lớp.',
+        'Nếu quá thời gian tìm đối thủ, bạn sẽ được so tài trực tiếp với AI Bot.',
+        'Cùng trả lời 3 câu hỏi trắc nghiệm môn học trong thời gian giới hạn.',
+        'Sinh viên trả lời đúng và nhanh hơn sẽ giành chiến thắng chung cuộc!'
+      ];
+    case 11:
+      return [
+        'Giảng viên sẽ công bố danh sách các ý tưởng dự án từ các nhóm trong lớp.',
+        'Đọc và phân tích kỹ lượng giải pháp của từng nhóm.',
+        'Tiến hành bình chọn bằng cách xếp hạng Top 3 ý tưởng bạn ưng ý nhất.',
+        'Gửi bình chọn để cộng điểm cho nhóm bạn học và nhận điểm chuyên cần.'
+      ];
+    case 12:
+      return [
+        'Chuẩn bị sẵn liên kết nộp bài tập nhóm hoặc cá nhân của bạn.',
+        'Dán liên kết (Drive, Github, Figma...) vào ô nộp bài.',
+        'Nhập thêm mô tả ngắn gọn hoặc ghi chú cho giảng viên nếu có.',
+        'Nộp bài trước khi thời gian buổi học kết thúc để nhận +10đ chuyên cần.'
+      ];
+    case 13:
+      return [
+        'Đồng hồ 30 giây sẽ đếm ngược ngay khi trò chơi bắt đầu.',
+        'Hãy tóm tắt ngắn gọn khái niệm hoặc bài học cốt lõi hôm nay.',
+        'Nêu lên tối thiểu một kỹ năng hoặc kiến thức bạn tiếp thu được.',
+        'Gửi câu trả lời trước khi hết giờ để nhận tối đa điểm thưởng.'
+      ];
+    case 14:
+      return [
+        'Tuần học đặc biệt (ôn tập hoặc báo cáo giữa kỳ).',
+        'Giảng viên mở cổng nhận quà điểm danh đặc biệt cho cả lớp.',
+        'Bạn chỉ cần nhấp vào Hộp Quà Vàng hiển thị trên màn hình.',
+        'Nhận ngay +50 điểm chuyên cần trực tiếp vào tài khoản.'
+      ];
+    case 15:
+      return [
+        'Tập trung cao độ và nhìn kỹ vào màn hình trò chơi.',
+        'Màn hình sẽ hiển thị bộ đếm ngược "Chuẩn bị..." trên nền đỏ.',
+        'Ngay khi màn hình chuyển sang Màu Xanh Lá và hiện "BẤM NGAY", nhấp thật nhanh.',
+        'Thời gian phản ứng (ms) sẽ quyết định số điểm chuyên cần của bạn!'
+      ];
+    case 16:
+    default:
+      return [
+        'Viết một chia sẻ ngắn (tối thiểu 20 ký tự) về bài học hôm nay.',
+        'Chia sẻ của bạn sẽ xuất hiện công khai trên bảng tin lớp học.',
+        'Đọc và thả tim tương tác cho các bài viết của bạn học sinh khác.',
+        'Nhấp nộp bài để hoàn thành điểm danh tuần học.'
+      ];
+  }
+};
+
+const getGameDemoMockup = (gameId: number) => {
+  switch (gameId) {
+    case 1:
+      return (
+        <div className="flex flex-col items-center p-md bg-red-50 rounded-2xl border border-red-200 animate-pulse w-full max-w-[240px]">
+          <span className="text-5xl">💣</span>
+          <div className="w-full bg-outline-variant/30 h-2 rounded-full overflow-hidden mt-sm max-w-[200px]">
+            <div className="bg-error h-full" style={{ width: '70%' }} />
+          </div>
+          <span className="text-xs text-error font-extrabold mt-2">⏱️ 10.5 giây (Sắp nổ!)</span>
+        </div>
+      );
+    case 2:
+      return (
+        <div className="flex flex-col items-center p-md bg-secondary-container/5 rounded-2xl border border-secondary-container/20 space-y-sm w-full max-w-[240px]">
+          <div className="flex gap-sm text-3xl">❤️ ❤️ ❤️</div>
+          <span className="text-xs text-on-surface-variant font-bold">Số người còn sống: 24 / 52 học viên</span>
+        </div>
+      );
+    case 3:
+      return (
+        <div className="relative w-28 h-28 border-2 border-dashed border-primary/50 rounded-2xl flex items-center justify-center bg-primary/5 mx-auto">
+          <div className="absolute top-2 left-2 w-4 h-4 border-t-4 border-l-4 border-primary" />
+          <div className="absolute top-2 right-2 w-4 h-4 border-t-4 border-r-4 border-primary" />
+          <div className="absolute bottom-2 left-2 w-4 h-4 border-b-4 border-l-4 border-primary" />
+          <div className="absolute bottom-2 right-2 w-4 h-4 border-b-4 border-r-4 border-primary" />
+          <span className="material-symbols-outlined text-4xl text-primary animate-pulse">qr_code_scanner</span>
+        </div>
+      );
+    case 4:
+      return (
+        <div className="space-y-sm w-full text-left bg-surface-container p-sm rounded-xl border border-outline-variant/20 max-w-[240px]">
+          <div className="bg-amber-100 p-2 rounded-lg text-xs text-amber-900 border border-amber-200 shadow-sm">
+            📌 <b>Ý tưởng Nhóm 2:</b> Thiết kế bộ lọc nước mini tái chế chai nhựa.
+          </div>
+          <div className="bg-white p-2 rounded-lg text-[11px] text-on-surface-variant italic truncate shadow-sm">
+            💬 Tuấn: Tối nay chúng ta làm nốt slide nhé...
+          </div>
+        </div>
+      );
+    case 5:
+      return (
+        <div className="flex flex-col items-center p-md bg-surface-container-low rounded-2xl border border-outline-variant/30 space-y-sm w-full max-w-[240px]">
+          <span className="text-3xl">🕵️</span>
+          <div className="bg-primary-container text-white text-xs font-black px-3 py-1 rounded-full shadow-sm">
+            VAI TRÒ: DÂN THƯỜNG
+          </div>
+          <span className="text-xs font-bold text-on-surface">Từ bí mật hiển thị: <b>Prototype</b></span>
+        </div>
+      );
+    case 6:
+      return (
+        <div className="flex flex-col items-center justify-center p-sm">
+          <button className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white active:scale-95 transition-all animate-pulse">
+            <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>pan_tool</span>
+          </button>
+          <span className="text-xs text-primary font-black mt-2">BẤM ĐỂ GIƠ TAY PHÁT BIỂU!</span>
+        </div>
+      );
+    case 7:
+      return (
+        <div className="text-center space-y-sm w-full max-w-[240px]">
+          <div className="flex justify-center gap-sm text-2xl text-yellow-500">
+            ★ ★ ★ ★ ★
+          </div>
+          <span className="text-xs font-bold text-on-surface-variant block">Đánh giá độ hiểu bài: 5/5</span>
+        </div>
+      );
+    case 8:
+      return (
+        <div className="flex items-center gap-sm bg-orange-50 border-2 border-orange-200 px-4 py-2 rounded-full text-orange-700 mx-auto w-fit shadow-md">
+          <span className="text-2xl animate-bounce">🔥</span>
+          <span className="text-sm font-black">Chuỗi 12 Tuần liên tục</span>
+        </div>
+      );
+    case 9:
+      return (
+        <div className="flex items-center justify-center gap-2 text-xs font-black p-sm w-full max-w-[240px]">
+          <span className="bg-surface-container px-2 py-1 rounded-lg border shadow-sm">Thiết kế</span>
+          ➔
+          <span className="bg-primary-container text-white px-2 py-1 rounded-lg border border-primary shadow-sm">Kỹ thuật</span>
+        </div>
+      );
+    case 10:
+      return (
+        <div className="flex justify-around items-center w-full p-2 bg-surface-container rounded-xl text-xs font-bold border border-outline-variant/20 shadow-inner w-full max-w-[240px]">
+          <span className="text-primary">Bạn (20đ)</span>
+          <span className="text-lg">⚔️</span>
+          <span className="text-secondary">Hoàng (10đ)</span>
+        </div>
+      );
+    case 11:
+      return (
+        <div className="space-y-sm text-left w-full text-xs bg-white p-sm rounded-xl border border-outline-variant/20 w-full max-w-[240px]">
+          <div>🥇 Hạng 1: <span className="font-extrabold text-primary">Ý tưởng Nhóm 2</span></div>
+          <div>🥈 Hạng 2: <span className="font-extrabold text-primary">Ý tưởng Nhóm 5</span></div>
+        </div>
+      );
+    case 12:
+      return (
+        <div className="bg-white border border-outline-variant/30 rounded-xl p-md flex items-center gap-sm text-xs shadow-sm max-w-[240px] mx-auto">
+          <span className="material-symbols-outlined text-xl text-primary">cloud_upload</span>
+          <span className="text-on-surface font-extrabold truncate">bao_cao_nhom_1.pdf</span>
+          <span className="text-success font-black ml-auto flex items-center gap-xs">✓ ĐÃ NỘP</span>
+        </div>
+      );
+    case 13:
+      return (
+        <div className="flex flex-col items-center gap-sm">
+          <div className="w-10 h-10 rounded-full border border-primary flex items-center justify-center bg-primary/5">
+            <span className="material-symbols-outlined text-lg text-primary animate-pulse">mic</span>
+          </div>
+          <div className="w-20 h-1.5 bg-outline-variant/30 rounded-full overflow-hidden">
+            <div className="bg-primary h-full animate-pulse" style={{ width: '85%' }} />
+          </div>
+          <span className="text-[10px] text-on-surface-variant font-bold">⏱️ 30s tóm tắt</span>
+        </div>
+      );
+    case 14:
+      return (
+        <div className="flex flex-col items-center text-center space-y-1">
+          <span className="text-4xl animate-bounce">🎁</span>
+          <span className="text-xs font-black text-amber-600">BẤM MỞ HỘP QUÀ +50đ</span>
+        </div>
+      );
+    case 15:
+      return (
+        <div className="w-28 py-2.5 bg-success text-white text-center rounded-2xl font-black text-sm border-2 border-success-container shadow-md animate-pulse mx-auto">
+          🚀 BẤM NGAY!
+        </div>
+      );
+    case 16:
+    default:
+      return (
+        <div className="bg-white p-sm rounded-xl border border-outline-variant/30 text-left shadow-sm w-full max-w-[240px]">
+          <p className="text-xs leading-relaxed font-medium text-on-surface">"Hôm nay chúng em đã cùng học Design Thinking."</p>
+          <span className="text-[10px] text-primary font-bold mt-1.5 block">❤️ 8 lượt thích</span>
+        </div>
+      );
+  }
+};
+
 export default function GameModal({ game, weekNumber, streak, onComplete, onClose }: Props) {
   const supabase = createClient();
   const gc = getGameContent(weekNumber);
   const [done, setDone] = useState(false);
   const [pts, setPts] = useState(0);
+  const [showInstruction, setShowInstruction] = useState(true);
   const [text, setText] = useState('');
   const [stars, setStars] = useState(0);
   const [codeInput, setCode] = useState(['', '', '', '']);
@@ -1212,6 +1473,72 @@ export default function GameModal({ game, weekNumber, streak, onComplete, onClos
     <GameModalContext.Provider value={{ game, weekNumber, onClose, pts }}>
       {(() => {
         if (done) return <Wrap><Done /></Wrap>;
+
+        if (showInstruction) {
+          return (
+            <Wrap>
+              <div className="space-y-md animate-fade-in text-left">
+                {/* Header/Banner */}
+                <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-md rounded-xxl text-center border border-primary/20 relative overflow-hidden">
+                  <div className="absolute -right-8 -top-8 w-20 h-20 bg-primary/10 rounded-full blur-lg" />
+                  <div className="text-5xl mb-xs animate-float select-none">{game.icon}</div>
+                  <h3 className="text-base font-extrabold text-on-surface">{game.name}</h3>
+                  <p className="text-[10px] font-black text-primary uppercase tracking-wider mt-1">
+                    Tuần {weekNumber} • Thưởng +{game.points} Điểm chuyên cần
+                  </p>
+                </div>
+
+                {/* Description */}
+                <div className="space-y-xs">
+                  <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-wider block">
+                    📋 Mô tả nhiệm vụ:
+                  </span>
+                  <p className="text-xs font-semibold text-on-surface leading-relaxed bg-surface-container-low p-sm rounded-xl border border-outline-variant/10">
+                    {game.description}
+                  </p>
+                </div>
+
+                {/* Illustrated instructions */}
+                <div className="space-y-xs">
+                  <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-wider block">
+                    🎮 Các bước hoàn thành:
+                  </span>
+                  <div className="space-y-sm bg-surface-container-low p-sm rounded-xl border border-outline-variant/10">
+                    {getGameInstructionSteps(game.id).map((step, idx) => (
+                      <div key={idx} className="flex gap-xs items-start">
+                        <span className="w-4.5 h-4.5 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">
+                          {idx + 1}
+                        </span>
+                        <p className="text-xs font-bold text-on-surface leading-normal">{step}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mockup Preview */}
+                <div className="space-y-xs">
+                  <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-wider block">
+                    📱 Minh họa giao diện:
+                  </span>
+                  <div className="bg-surface-container-low p-sm rounded-xl border border-outline-variant/10 flex items-center justify-center">
+                    {getGameDemoMockup(game.id)}
+                  </div>
+                </div>
+
+                {/* Action button */}
+                <div className="pt-sm">
+                  <button
+                    onClick={() => setShowInstruction(false)}
+                    className="w-full py-md bg-primary text-on-primary font-bold text-xs rounded-xl hover:bg-primary/95 transition-all active:scale-95 shadow-md flex items-center justify-center gap-xs cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                    Bắt đầu thử thách! 🎮
+                  </button>
+                </div>
+              </div>
+            </Wrap>
+          );
+        }
 
 
         // ── GAME 1: Hot Potato Bomb ───────────────────────────────────────────────

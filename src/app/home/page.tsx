@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 import GameModal from '@/components/games/GameModal';
-import { createClient, isMockEnabled, getTeacherSettings, SUBJECT_NAME, TOTAL_WEEKS, DEFAULT_TEACHER_SETTINGS, ALL_GAMES } from '@/utils/supabase/client';
+import OnboardingTour from '@/components/OnboardingTour';
+import { createClient, isMockEnabled, getTeacherSettings, SUBJECT_NAME, TOTAL_WEEKS, DEFAULT_TEACHER_SETTINGS, ALL_GAMES, isUserTeacher } from '@/utils/supabase/client';
 import type { TeacherSettings, Game } from '@/utils/supabase/client';
 
 export default function HomePage() {
@@ -24,6 +25,7 @@ export default function HomePage() {
   const [activeGame,     setActiveGame]     = useState<any>(null);
   // Safe default — localStorage only loaded after mount to avoid SSR mismatch
   const [teacherSettings, setTeacherSettings] = useState<TeacherSettings>({ ...DEFAULT_TEACHER_SETTINGS, games: ALL_GAMES.map(g => ({ ...g })) });
+  const [showTour, setShowTour] = useState(false);
 
   // GPS verification states
   const [gpsVerified, setGpsVerified] = useState(false);
@@ -158,9 +160,32 @@ export default function HomePage() {
       } else {
         setCheckedIn(false);
       }
+
+      // Check onboarding tour
+      const isTeacher = isUserTeacher(user);
+      if (!isTeacher) {
+        const onboardingCompleted = localStorage.getItem('attendance_hero_onboarding_completed');
+        if (onboardingCompleted !== 'true') {
+          setShowTour(true);
+        }
+      }
     }
     init();
   }, [activeWeek, userId]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (window.location.search.includes('startTour=true')) {
+        setShowTour(true);
+        const newUrl = window.location.pathname;
+        window.history.replaceState({ path: newUrl }, '', newUrl);
+      }
+
+      const handleStartTourEvent = () => setShowTour(true);
+      window.addEventListener('start-onboarding-tour', handleStartTourEvent);
+      return () => window.removeEventListener('start-onboarding-tour', handleStartTourEvent);
+    }
+  }, []);
 
   // ── GPS Geolocation helpers ────────────────────────────────────────────────
   const HUST_COORDS = { lat: 21.0064, lng: 105.8431 };
@@ -714,6 +739,10 @@ export default function HomePage() {
 
           </div>
         </div>
+      )}
+
+      {showTour && (
+        <OnboardingTour onClose={() => setShowTour(false)} />
       )}
 
       <BottomNav />
