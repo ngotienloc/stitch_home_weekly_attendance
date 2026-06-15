@@ -27,13 +27,6 @@ export default function TeacherPage() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [completedWeeks, setCompletedWeeks] = useState<Set<number>>(new Set());
 
-  // Statistics Dashboard states
-  const [teacherTab, setTeacherTab] = useState<'current_week' | 'any_week' | 'overall'>('current_week');
-  const [selectedStatsWeek, setSelectedStatsWeek] = useState<number>(1);
-  const [statsWeeklyStudents, setStatsWeeklyStudents] = useState<CheckedInStudent[]>([]);
-  const [allProfiles, setAllProfiles] = useState<any[]>([]);
-  const [allCheckIns, setAllCheckIns] = useState<any[]>([]);
-
   const [customSecretQuestion, setCustomSecretQuestion] = useState('');
   const [customTeamChallenge, setCustomTeamChallenge] = useState('');
   const [customQuizQuestions, setCustomQuizQuestions] = useState<any[]>([]);
@@ -865,149 +858,7 @@ export default function TeacherPage() {
     return () => clearInterval(interval);
   }, [loadStudents]);
 
-  // Load stats data for overall and other weeks
-  const loadStatsData = useCallback(async () => {
-    if (isMockEnabled) {
-      const checkIns: any[] = JSON.parse(localStorage.getItem('mock_check_ins') || '[]');
-      const profiles: any[] = JSON.parse(localStorage.getItem('mock_profiles') || '[]');
-      setAllProfiles(profiles);
-      setAllCheckIns(checkIns);
 
-      // Load for selectedStatsWeek
-      const weekCheckIns = checkIns.filter((c: any) => c.week_number === selectedStatsWeek);
-      const result: CheckedInStudent[] = weekCheckIns.map((c: any) => {
-        const profile = profiles.find((p: any) => p.id === c.user_id);
-        return {
-          id: c.id,
-          full_name: profile?.full_name || 'Sinh viên',
-          avatar_url: profile?.avatar_url || null,
-          points_earned: c.points_earned,
-          game_name: c.game_name || 'Điểm danh',
-          created_at: c.created_at,
-          student_input: c.student_input || null,
-        };
-      });
-      setStatsWeeklyStudents(result);
-    } else {
-      try {
-        // Fetch all profiles
-        const { data: profiles, error: pError } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('full_name', { ascending: true });
-        if (pError) throw pError;
-        setAllProfiles(profiles || []);
-
-        // Fetch all check-ins
-        const { data: checkIns, error: cError } = await supabase
-          .from('check_ins')
-          .select('*');
-        if (cError) throw cError;
-        setAllCheckIns(checkIns || []);
-
-        // Fetch for selectedStatsWeek
-        const { data: weekData, error: wError } = await supabase
-          .from('check_ins')
-          .select(`
-            id,
-            points_earned,
-            game_name,
-            created_at,
-            student_input,
-            profiles (
-              id,
-              full_name,
-              avatar_url
-            )
-          `)
-          .eq('week_number', selectedStatsWeek);
-        if (wError) throw wError;
-
-        if (weekData) {
-          const result: CheckedInStudent[] = (weekData as any[]).map((c: any) => {
-            const profile = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles;
-            return {
-              id: c.id,
-              full_name: profile?.full_name || 'Sinh viên',
-              avatar_url: profile?.avatar_url || null,
-              points_earned: c.points_earned,
-              game_name: c.game_name || 'Điểm danh',
-              created_at: c.created_at,
-              student_input: c.student_input || null,
-            };
-          });
-          setStatsWeeklyStudents(result);
-        }
-      } catch (err) {
-        console.error('Failed to load stats data:', err);
-      }
-    }
-  }, [supabase, selectedStatsWeek]);
-
-  useEffect(() => {
-    if (teacherTab !== 'current_week') {
-      loadStatsData();
-      const interval = setInterval(loadStatsData, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [teacherTab, loadStatsData]);
-
-  const handleExportStatsWeekCSV = () => {
-    if (statsWeeklyStudents.length === 0) {
-      alert(`Không có dữ liệu sinh viên điểm danh để xuất tuần ${selectedStatsWeek}!`);
-      return;
-    }
-    let csvContent = 'data:text/csv;charset=utf-8,\uFEFF';
-    csvContent += 'STT,Họ và tên,Tên thử thách,Số điểm,Thời gian điểm danh,Câu trả lời chi tiết\n';
-    
-    statsWeeklyStudents.forEach((s, idx) => {
-      const timeStr = new Date(s.created_at).toLocaleString('vi-VN');
-      const cleanInput = s.student_input ? s.student_input.replace(/"/g, '""') : '';
-      csvContent += `${idx + 1},"${s.full_name}","${s.game_name}",${s.points_earned},"${timeStr}","${cleanInput}"\n`;
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `DiemDanh_Tuan_${selectedStatsWeek}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleExportOverallCSV = () => {
-    if (allProfiles.length === 0) {
-      alert('Không có dữ liệu sinh viên để xuất!');
-      return;
-    }
-    let csvContent = 'data:text/csv;charset=utf-8,\uFEFF';
-    let header = 'STT,Họ và tên,Ngành học,Tổng số buổi,Tỉ lệ chuyên cần';
-    for (let w = 1; w <= 16; w++) {
-      header += `,Tuần ${w}`;
-    }
-    csvContent += header + '\n';
-
-    allProfiles.forEach((p, idx) => {
-      const studentCis = allCheckIns.filter(c => c.user_id === p.id);
-      const attendedCount = studentCis.length;
-      const rate = ((attendedCount / 16) * 100).toFixed(1);
-      
-      let row = `${idx + 1},"${p.full_name}","${p.major || ''}",${attendedCount},${rate}%`;
-      for (let w = 1; w <= 16; w++) {
-        const hasAttended = studentCis.some(c => c.week_number === w);
-        row += hasAttended ? ',"x"' : ',"-"';
-      }
-      csvContent += row + '\n';
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `BaoCao_DiemDanh_TongHop.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   const getHandRaisers = useCallback(() => {
     return students
@@ -1191,10 +1042,19 @@ export default function TeacherPage() {
               <p className="text-[10px] font-bold text-on-secondary-container/70 uppercase tracking-wider">Giảng viên</p>
             </div>
           </div>
-          <button onClick={handleSignOut} className="flex items-center gap-1 text-on-secondary-container/80 text-sm font-bold hover:text-on-secondary-container transition-colors active:scale-95">
-            <span className="material-symbols-outlined text-[18px]">logout</span>
-            Đăng xuất
-          </button>
+          <div className="flex items-center gap-sm">
+            <button
+              onClick={() => router.push('/teacher/stats')}
+              className="flex items-center gap-1 text-on-secondary-container/80 text-sm font-bold hover:text-on-secondary-container transition-colors active:scale-95 border-0 bg-transparent cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">assessment</span>
+              Thống kê
+            </button>
+            <button onClick={handleSignOut} className="flex items-center gap-1 text-on-secondary-container/80 text-sm font-bold hover:text-on-secondary-container transition-colors active:scale-95 border-0 bg-transparent cursor-pointer">
+              <span className="material-symbols-outlined text-[18px]">logout</span>
+              Đăng xuất
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1976,272 +1836,70 @@ export default function TeacherPage() {
           </section>
         )}
 
-        {/* ── Tabs Navigation ──────────────────────────────────────────── */}
-        <div className="flex border-b border-outline-variant/30 mb-lg overflow-x-auto no-scrollbar gap-sm">
-          <button
-            onClick={() => setTeacherTab('current_week')}
-            className={`pb-sm font-bold text-sm transition-all relative px-sm flex items-center gap-xs cursor-pointer border-0 bg-transparent ${
-              teacherTab === 'current_week' ? 'text-primary font-extrabold' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[18px]">calendar_today</span>
-            Điểm danh tuần này
-            {teacherTab === 'current_week' && (
-              <span className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></span>
-            )}
-          </button>
-          
-          <button
-            onClick={() => setTeacherTab('any_week')}
-            className={`pb-sm font-bold text-sm transition-all relative px-sm flex items-center gap-xs cursor-pointer border-0 bg-transparent ${
-              teacherTab === 'any_week' ? 'text-primary font-extrabold' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[18px]">view_week</span>
-            Thống kê theo tuần
-            {teacherTab === 'any_week' && (
-              <span className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setTeacherTab('overall')}
-            className={`pb-sm font-bold text-sm transition-all relative px-sm flex items-center gap-xs cursor-pointer border-0 bg-transparent ${
-              teacherTab === 'overall' ? 'text-primary font-extrabold' : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[18px]">grid_on</span>
-            Bảng thống kê toàn bộ
-            {teacherTab === 'overall' && (
-              <span className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full"></span>
-            )}
-          </button>
-        </div>
-
-        {/* ── Tab Content: Current Week ──────────────────────────────────────────── */}
-        {teacherTab === 'current_week' && (
-          <section className="animate-fade-in-up stagger-3 space-y-md">
-            <div className="flex justify-between items-center mb-md">
-              <h3 className="text-xl font-extrabold text-on-surface font-display-hero">Sinh viên đã điểm danh (Tuần {settings.currentWeek})</h3>
-              <div className="flex items-center gap-sm">
-                {students.length > 0 && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleExportCSV}
-                      className="px-sm py-xs rounded-lg font-bold text-xs bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all border border-primary/20 flex items-center gap-0.5"
-                      title="Xuất file báo cáo điểm danh Excel CSV"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">download</span>
-                      Xuất Excel
-                    </button>
-                    <button
-                      onClick={handleResetAttendance}
-                      className="px-sm py-xs rounded-lg font-bold text-xs bg-error/10 text-error hover:bg-error/20 active:scale-95 transition-all border border-error/20 flex items-center gap-0.5"
-                      title="Đặt lại toàn bộ điểm danh tuần này"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">restart_alt</span>
-                      Đặt lại
-                    </button>
-                  </div>
-                )}
-                <span className="bg-tertiary-container text-on-tertiary-container text-xs font-bold px-sm py-xs rounded-full">
-                  {students.length} người
-                </span>
-              </div>
-            </div>
-
-            {students.length === 0 ? (
-              <div className="bg-surface-container rounded-2xl p-xl flex flex-col items-center gap-sm text-center">
-                <span className="text-4xl">📋</span>
-                <p className="text-sm font-semibold text-on-surface-variant">
-                  {mounted && settings.sessionOpen ? 'Chưa có sinh viên điểm danh tuần này.' : 'Mở buổi học để sinh viên điểm danh.'}
-                </p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] divide-y divide-surface-variant/30 border border-outline-variant/10 overflow-hidden">
-                {students.map((s, i) => (
-                  <div key={s.id} className="flex items-center gap-md p-md hover:bg-surface-container-low transition-colors">
-                    <span className="w-5 text-center text-xs font-bold text-on-surface-variant">{i + 1}</span>
-                    <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-primary-fixed flex-shrink-0">
-                      {s.avatar_url
-                        ? <img src={s.avatar_url} alt={s.full_name} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-sm">{s.full_name[0]}</div>
-                      }
-                    </div>
-                    <div className="flex-grow">
-                      <p className="text-sm font-bold text-on-surface">{s.full_name}</p>
-                      <p className="text-[11px] text-on-surface-variant">{s.game_name}</p>
-                      {s.student_input && (
-                        <p className="text-xs text-secondary mt-1 bg-surface-container-low px-2.5 py-1.5 rounded-lg border border-outline-variant/20 italic max-w-[320px] break-words">
-                          " {s.student_input} "
-                        </p>
-                      )}
-                    </div>
-                    <span className="text-primary font-extrabold text-sm">+{s.points_earned} đ</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ── Tab Content: Stats by Week ──────────────────────────────────────────── */}
-        {teacherTab === 'any_week' && (
-          <section className="animate-fade-in-up space-y-md">
-            <div className="bg-white p-lg rounded-xxl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-outline-variant/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-md">
-              <div className="flex items-center gap-md">
-                <label className="text-sm font-bold text-on-surface">Chọn tuần học:</label>
-                <select
-                  value={selectedStatsWeek}
-                  onChange={(e) => setSelectedStatsWeek(Number(e.target.value))}
-                  className="p-sm bg-surface-container rounded-lg border border-outline-variant/30 text-sm font-bold focus:outline-none focus:border-primary"
-                >
-                  {Array.from({ length: 16 }).map((_, idx) => (
-                    <option key={idx + 1} value={idx + 1}>Tuần {idx + 1}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center gap-sm w-full sm:w-auto justify-between sm:justify-end">
-                {statsWeeklyStudents.length > 0 && (
+        {/* ── Checked-in Students ──────────────────────────────────────────── */}
+        <section className="animate-fade-in-up stagger-3">
+          <div className="flex justify-between items-center mb-md">
+            <h3 className="text-xl font-extrabold text-on-surface font-display-hero">Sinh viên đã điểm danh (Tuần {settings.currentWeek})</h3>
+            <div className="flex items-center gap-sm">
+              {students.length > 0 && (
+                <div className="flex gap-2">
                   <button
-                    onClick={handleExportStatsWeekCSV}
+                    onClick={handleExportCSV}
                     className="px-sm py-xs rounded-lg font-bold text-xs bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all border border-primary/20 flex items-center gap-0.5 border-0"
+                    title="Xuất file báo cáo điểm danh Excel CSV"
                   >
                     <span className="material-symbols-outlined text-[14px]">download</span>
-                    Xuất Excel Tuần {selectedStatsWeek}
+                    Xuất Excel
                   </button>
-                )}
-                <span className="bg-tertiary-container text-on-tertiary-container text-xs font-bold px-sm py-xs rounded-full">
-                  {statsWeeklyStudents.length} người
-                </span>
-              </div>
-            </div>
-
-            {statsWeeklyStudents.length === 0 ? (
-              <div className="bg-surface-container rounded-2xl p-xl flex flex-col items-center gap-sm text-center">
-                <span className="text-4xl">📋</span>
-                <p className="text-sm font-semibold text-on-surface-variant">
-                  Không có dữ liệu điểm danh cho Tuần {selectedStatsWeek}.
-                </p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] divide-y divide-surface-variant/30 border border-outline-variant/10 overflow-hidden">
-                {statsWeeklyStudents.map((s, i) => (
-                  <div key={s.id} className="flex items-center gap-md p-md hover:bg-surface-container-low transition-colors">
-                    <span className="w-5 text-center text-xs font-bold text-on-surface-variant">{i + 1}</span>
-                    <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-primary-fixed flex-shrink-0">
-                      {s.avatar_url
-                        ? <img src={s.avatar_url} alt={s.full_name} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-sm">{s.full_name[0]}</div>
-                      }
-                    </div>
-                    <div className="flex-grow">
-                      <p className="text-sm font-bold text-on-surface">{s.full_name}</p>
-                      <p className="text-[11px] text-on-surface-variant">{s.game_name}</p>
-                      {s.student_input && (
-                        <p className="text-xs text-secondary mt-1 bg-surface-container-low px-2.5 py-1.5 rounded-lg border border-outline-variant/20 italic max-w-[320px] break-words">
-                          " {s.student_input} "
-                        </p>
-                      )}
-                    </div>
-                    <span className="text-primary font-extrabold text-sm">+{s.points_earned} đ</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ── Tab Content: Overall Statistics Matrix ──────────────────────────────────────────── */}
-        {teacherTab === 'overall' && (
-          <section className="animate-fade-in-up space-y-md">
-            <div className="bg-white p-lg rounded-xxl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-outline-variant/10 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-on-surface flex items-center gap-1">
-                <span className="material-symbols-outlined text-[20px] text-primary">assessment</span>
-                Bảng điểm danh tổng hợp
-              </h3>
-              {allProfiles.length > 0 && (
-                <button
-                  onClick={handleExportOverallCSV}
-                  className="px-sm py-xs rounded-lg font-bold text-xs bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all border border-primary/20 flex items-center gap-0.5 border-0"
-                >
-                  <span className="material-symbols-outlined text-[14px]">download</span>
-                  Xuất Báo Cáo Tổng Hợp
-                </button>
-              )}
-            </div>
-
-            {allProfiles.length === 0 ? (
-              <div className="bg-surface-container rounded-2xl p-xl flex flex-col items-center gap-sm text-center">
-                <span className="text-4xl">👥</span>
-                <p className="text-sm font-semibold text-on-surface-variant">
-                  Chưa có dữ liệu sinh viên nào trong hệ thống.
-                </p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-xxl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-outline-variant/10 overflow-hidden">
-                <div className="overflow-x-auto no-scrollbar">
-                  <table className="w-full border-collapse text-left text-xs">
-                    <thead>
-                      <tr className="bg-surface-container-low text-on-surface border-b border-outline-variant/20">
-                        <th className="p-md font-bold text-center w-[50px]">STT</th>
-                        <th className="p-md font-bold min-w-[150px]">Họ và tên</th>
-                        <th className="p-md font-bold min-w-[120px]">Ngành học</th>
-                        <th className="p-md font-bold text-center w-[70px]">Số buổi</th>
-                        <th className="p-md font-bold text-center w-[70px]">Tỉ lệ</th>
-                        {Array.from({ length: 16 }).map((_, idx) => (
-                          <th key={idx + 1} className="p-xs font-bold text-center w-[36px] bg-surface-container/30">T{idx + 1}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-surface-variant/30 text-on-surface">
-                      {allProfiles.map((p, idx) => {
-                        const studentCis = allCheckIns.filter(c => c.user_id === p.id);
-                        const attendedCount = studentCis.length;
-                        const rate = ((attendedCount / 16) * 100).toFixed(0);
-                        
-                        return (
-                          <tr key={p.id} className="hover:bg-surface-container-low transition-colors">
-                            <td className="p-md text-center font-bold text-on-surface-variant">{idx + 1}</td>
-                            <td className="p-md font-bold">
-                              <div className="flex items-center gap-sm">
-                                <div className="w-6 h-6 rounded-full overflow-hidden border border-outline-variant flex-shrink-0">
-                                  {p.avatar_url
-                                    ? <img src={p.avatar_url} alt={p.full_name} className="w-full h-full object-cover" />
-                                    : <div className="w-full h-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-[10px]">{p.full_name[0]}</div>
-                                  }
-                                </div>
-                                <span>{p.full_name}</span>
-                              </div>
-                            </td>
-                            <td className="p-md text-on-surface-variant font-medium">{p.major || '-'}</td>
-                            <td className="p-md text-center font-extrabold text-primary">{attendedCount}/16</td>
-                            <td className="p-md text-center font-bold text-tertiary">{rate}%</td>
-                            {Array.from({ length: 16 }).map((_, wIdx) => {
-                              const w = wIdx + 1;
-                              const hasAttended = studentCis.some(c => c.week_number === w);
-                              return (
-                                <td key={w} className={`p-xs text-center border-l border-outline-variant/10 ${hasAttended ? 'bg-green-50/20' : ''}`}>
-                                  {hasAttended ? (
-                                    <span className="text-green-600 font-extrabold text-sm" title={`Tuần ${w}: Đã tham gia`}>✓</span>
-                                  ) : (
-                                    <span className="text-on-surface-variant/20 font-bold" title={`Tuần ${w}: Vắng`}>-</span>
-                                  )}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <button
+                    onClick={handleResetAttendance}
+                    className="px-sm py-xs rounded-lg font-bold text-xs bg-error/10 text-error hover:bg-error/20 active:scale-95 transition-all border border-error/20 flex items-center gap-0.5 border-0"
+                    title="Đặt lại toàn bộ điểm danh tuần này"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">restart_alt</span>
+                    Đặt lại
+                  </button>
                 </div>
-              </div>
-            )}
-          </section>
-        )}
+              )}
+              <span className="bg-tertiary-container text-on-tertiary-container text-xs font-bold px-sm py-xs rounded-full">
+                {students.length} người
+              </span>
+            </div>
+          </div>
 
-        <div className="pb-lg" />
+          {students.length === 0 ? (
+            <div className="bg-surface-container rounded-2xl p-xl flex flex-col items-center gap-sm text-center">
+              <span className="text-4xl">📋</span>
+              <p className="text-sm font-semibold text-on-surface-variant">
+                {mounted && settings.sessionOpen ? 'Chưa có sinh viên điểm danh tuần này.' : 'Mở buổi học để sinh viên điểm danh.'}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] divide-y divide-surface-variant/30 border border-outline-variant/10 overflow-hidden">
+              {students.map((s, i) => (
+                <div key={s.id} className="flex items-center gap-md p-md hover:bg-surface-container-low transition-colors">
+                  <span className="w-5 text-center text-xs font-bold text-on-surface-variant">{i + 1}</span>
+                  <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-primary-fixed flex-shrink-0">
+                    {s.avatar_url
+                      ? <img src={s.avatar_url} alt={s.full_name} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-sm">{s.full_name[0]}</div>
+                    }
+                  </div>
+                  <div className="flex-grow">
+                    <p className="text-sm font-bold text-on-surface">{s.full_name}</p>
+                    <p className="text-[11px] text-on-surface-variant">{s.game_name}</p>
+                    {s.student_input && (
+                      <p className="text-xs text-secondary mt-1 bg-surface-container-low px-2.5 py-1.5 rounded-lg border border-outline-variant/20 italic max-w-[320px] break-words">
+                        " {s.student_input} "
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-primary font-extrabold text-sm">+{s.points_earned} đ</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </main>
 
       {/* QR Code modal popup for Teacher */}

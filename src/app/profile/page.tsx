@@ -263,19 +263,13 @@ export default function ProfilePage() {
               <div className="space-y-sm text-left">
                 <div>
                   <label className="block text-xs font-bold text-on-surface-variant mb-xs">Ngành học</label>
-                  <select 
+                  <input 
+                    type="text"
                     value={major} 
                     onChange={(e) => setMajor(e.target.value)}
-                    className="w-full p-sm bg-surface-container rounded-md border border-outline-variant/30 text-sm focus:outline-none focus:border-primary"
-                  >
-                    <option value="">-- Chọn ngành học --</option>
-                    <option value="Tâm lý học">Tâm lý học</option>
-                    <option value="Công nghệ thông tin">Công nghệ thông tin</option>
-                    <option value="Thiết kế kỹ thuật">Thiết kế kỹ thuật</option>
-                    <option value="Kinh tế học">Kinh tế học</option>
-                    <option value="Ngôn ngữ Anh">Ngôn ngữ Anh</option>
-                    <option value="Quản trị kinh doanh">Quản trị kinh doanh</option>
-                  </select>
+                    placeholder="Nhập tên ngành học của bạn..."
+                    className="w-full p-sm bg-surface-container rounded-md border border-outline-variant/30 text-sm focus:outline-none focus:border-primary outline-none"
+                  />
                 </div>
 
                 <div>

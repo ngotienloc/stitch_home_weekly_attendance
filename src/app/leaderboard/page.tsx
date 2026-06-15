@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
@@ -22,6 +22,7 @@ export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'week' | 'friends'>('all');
   const [loading, setLoading] = useState(true);
   const [updatedUserId, setUpdatedUserId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const supabase = createClient();
@@ -89,7 +90,7 @@ export default function LeaderboardPage() {
   }, []);
 
   // Filter profiles based on active tab
-  const getFilteredProfiles = () => {
+  const filtered = useMemo(() => {
     if (activeTab === 'week') {
       // Simulated weekly offset or filter: for demo, subtract some points or filter
       return [...profiles]
@@ -111,9 +112,7 @@ export default function LeaderboardPage() {
     }
     
     return profiles;
-  };
-
-  const filtered = getFilteredProfiles();
+  }, [profiles, activeTab, currentUserId]);
 
   // Find current user rank
   const userRankIndex = filtered.findIndex((p) => p.id === currentUserId);
@@ -181,7 +180,7 @@ export default function LeaderboardPage() {
         {/* Ranking Filter/Tabs */}
         <div className="flex gap-sm mb-md overflow-x-auto no-scrollbar py-xs animate-fade-in-up stagger-1">
           <button
-            onClick={() => setActiveTab('all')}
+            onClick={() => startTransition(() => setActiveTab('all'))}
             className={`px-lg py-sm rounded-full text-sm font-bold transition-all duration-300 active:scale-95 ${
               activeTab === 'all'
                 ? 'bg-primary text-on-primary'
@@ -191,7 +190,7 @@ export default function LeaderboardPage() {
             Tất cả
           </button>
           <button
-            onClick={() => setActiveTab('week')}
+            onClick={() => startTransition(() => setActiveTab('week'))}
             className={`px-lg py-sm rounded-full text-sm font-bold transition-all duration-300 active:scale-95 ${
               activeTab === 'week'
                 ? 'bg-primary text-on-primary'
@@ -201,7 +200,7 @@ export default function LeaderboardPage() {
             Tuần này
           </button>
           <button
-            onClick={() => setActiveTab('friends')}
+            onClick={() => startTransition(() => setActiveTab('friends'))}
             className={`px-lg py-sm rounded-full text-sm font-bold transition-all duration-300 active:scale-95 ${
               activeTab === 'friends'
                 ? 'bg-primary text-on-primary'
