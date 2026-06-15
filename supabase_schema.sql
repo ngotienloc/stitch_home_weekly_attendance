@@ -3,6 +3,7 @@ create table public.profiles (
   id uuid references auth.users on delete cascade primary key,
   full_name text not null,
   avatar_url text,
+  major text,
   streak integer default 0,
   total_points integer default 0,
   attendance_rate numeric default 100.0,
@@ -22,11 +23,12 @@ create policy "Users can update their own profile." on public.profiles
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, full_name, avatar_url, streak, total_points, attendance_rate)
+  insert into public.profiles (id, full_name, avatar_url, major, streak, total_points, attendance_rate)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', 'Student Hero'),
     new.raw_user_meta_data->>'avatar_url',
+    new.raw_user_meta_data->>'major',
     0,
     0,
     100.0

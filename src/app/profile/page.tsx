@@ -14,6 +14,7 @@ interface Profile {
   streak: number;
   total_points: number;
   attendance_rate: number;
+  major?: string | null;
 }
 
 interface ActivityLog {
@@ -30,6 +31,15 @@ export default function ProfilePage() {
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [checkedInWeeks, setCheckedInWeeks] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Settings/Edit states
+  const [isEditing, setIsEditing] = useState(false);
+  const [major, setMajor] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   
   const supabase = createClient();
 
@@ -51,6 +61,7 @@ export default function ProfilePage() {
       
       if (p) {
         setProfile(p as Profile);
+        setMajor(p.major || '');
       }
 
       // 2. Fetch activities
@@ -94,6 +105,58 @@ export default function ProfilePage() {
 
     router.refresh();
     router.push('/login');
+  };
+
+  const handleSaveInfo = async () => {
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (password && password.length < 6) {
+      setErrorMsg('Mật khẩu phải dài ít nhất 6 ký tự.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMsg('Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Chưa đăng nhập');
+
+      // Update major in public.profiles
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ major })
+        .eq('id', user.id);
+
+      if (profileError) throw profileError;
+
+      // Update password if typed
+      if (password) {
+        const { error: authError } = await supabase.auth.updateUser({ password });
+        if (authError) throw authError;
+      }
+
+      setSuccessMsg('Cập nhật thông tin thành công!');
+      // Update local state
+      if (profile) {
+        setProfile({ ...profile, major });
+      }
+      setPassword('');
+      setConfirmPassword('');
+      setTimeout(() => {
+        setIsEditing(false);
+        setSuccessMsg('');
+      }, 1500);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || 'Có lỗi xảy ra khi lưu.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const getIcon = (type: string) => {
@@ -147,7 +210,14 @@ export default function ProfilePage() {
             </div>
             <div>
               <h2 className="text-2xl font-bold font-display-hero text-on-surface">{profile?.full_name}</h2>
-              <p className="text-on-surface-variant font-medium text-sm">Sinh viên Tâm lý học năm 2</p>
+              <p className="text-on-surface-variant font-medium text-sm">Ngành học: {profile?.major || 'Chưa chọn ngành học'}</p>
+              <button 
+                onClick={() => setIsEditing(!isEditing)}
+                className="mt-xs text-xs font-bold text-primary flex items-center justify-center gap-xs mx-auto bg-primary/10 px-md py-xs rounded-full hover:bg-primary/20 transition-all active:scale-95 cursor-pointer border-0"
+              >
+                <span className="material-symbols-outlined text-[16px]">edit</span>
+                {isEditing ? 'Đóng chỉnh sửa' : 'Chỉnh sửa thông tin'}
+              </button>
             </div>
           </section>
 
@@ -170,6 +240,85 @@ export default function ProfilePage() {
               <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Tham gia</span>
             </div>
           </section>
+
+          {/* Edit Profile Form */}
+          {isEditing && (
+            <section className="bg-white p-lg rounded-card shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-surface-variant/20 animate-slide-up space-y-md">
+              <h3 className="text-lg font-bold font-headline-md text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-primary">manage_accounts</span>
+                Cập nhật thông tin
+              </h3>
+              
+              {errorMsg && (
+                <div className="bg-error-container text-on-error-container p-sm rounded-md text-xs font-semibold">
+                  {errorMsg}
+                </div>
+              )}
+              {successMsg && (
+                <div className="bg-green-100 text-green-800 p-sm rounded-md text-xs font-semibold">
+                  {successMsg}
+                </div>
+              )}
+
+              <div className="space-y-sm text-left">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-xs">Ngành học</label>
+                  <select 
+                    value={major} 
+                    onChange={(e) => setMajor(e.target.value)}
+                    className="w-full p-sm bg-surface-container rounded-md border border-outline-variant/30 text-sm focus:outline-none focus:border-primary"
+                  >
+                    <option value="">-- Chọn ngành học --</option>
+                    <option value="Tâm lý học">Tâm lý học</option>
+                    <option value="Công nghệ thông tin">Công nghệ thông tin</option>
+                    <option value="Thiết kế kỹ thuật">Thiết kế kỹ thuật</option>
+                    <option value="Kinh tế học">Kinh tế học</option>
+                    <option value="Ngôn ngữ Anh">Ngôn ngữ Anh</option>
+                    <option value="Quản trị kinh doanh">Quản trị kinh doanh</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-xs">Mật khẩu mới</label>
+                  <input 
+                    type="password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu mới (nếu muốn đổi)"
+                    className="w-full p-sm bg-surface-container rounded-md border border-outline-variant/30 text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-xs">Xác nhận mật khẩu mới</label>
+                  <input 
+                    type="password" 
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Nhập lại mật khẩu mới"
+                    className="w-full p-sm bg-surface-container rounded-md border border-outline-variant/30 text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-sm">
+                <button
+                  onClick={handleSaveInfo}
+                  disabled={saving}
+                  className="flex-1 py-sm bg-primary text-white font-bold rounded-md hover:bg-primary-container transition-all active:scale-95 flex items-center justify-center gap-xs cursor-pointer border-0 disabled:opacity-55"
+                >
+                  {saving ? (
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[18px]">save</span>
+                      Lưu thay đổi
+                    </>
+                  )}
+                </button>
+              </div>
+            </section>
+          )}
 
           {/* Multiplier Banner */}
           <div className="bg-primary-container text-on-primary-container p-md rounded-card flex justify-between items-center shadow-md relative overflow-hidden animate-fade-in-up stagger-2 border border-primary/10">

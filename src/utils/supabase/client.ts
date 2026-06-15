@@ -133,25 +133,25 @@ const DEFAULT_PROFILES = [
     id: 'jane-doe-uuid',
     full_name: 'Trần Thị Lan',
     avatar_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA34VnqX9FFdaSMK1CiAOc6nPeKk_6EQtG239de6uYCNQaeqO-_V2nuU4f2L_LJBwfUUYqIahRSy0dEcaREeoZ3q8Bq4rJ_rEdR1qaQR97Di2AHA1677rB7_TOcksUbb_KdNXGXKu6eDLhw6KieqldAjXGFpsZ5gkTMMDJ9IIsE6J7ughPP6PkyWvMvsVaVkg3l_W2PgHoNZhY-VsyS_TJBW_ZdXzGx3LZ27iDtDEugTW-JfjZBnbMryJRZxP5t1nW3dm8w5zLE4n8',
-    streak: 12, total_points: 450, attendance_rate: 98.0, email: 'lan.tran@student.edu.vn', role: 'student'
+    streak: 12, total_points: 450, attendance_rate: 98.0, email: 'lan.tran@student.edu.vn', role: 'student', major: 'Tâm lý học'
   },
   {
     id: 'mark-smith-uuid',
     full_name: 'Nguyễn Hoàng Nam',
     avatar_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuClsKc6Ieiu44C6_90TuM79aukUWgqrTHPf7UUJXB-VMN8NsOgfqOviFgmf2leLRFuj4hZGpnD2bif0skpWyXWKYrUH2VCuiGjV27GUAfPmXNO6X6P3JKNUU2mXgBCEMzXoStOZcLETZP8Icfajb7XcOSxcQnUckyxpDkBlvnznQD3QphwLr-jF2hSB-0O9u2btA4UPV6g-b6gQydmnmB6xOctr2U5Etwuic3joZtgxEfkW1EBq3ePrIFSZHI-Tf_tAYtD_ZvBk5H8',
-    streak: 8,  total_points: 420, attendance_rate: 90.0, email: 'nam.nguyen@student.edu.vn', role: 'student'
+    streak: 8,  total_points: 420, attendance_rate: 90.0, email: 'nam.nguyen@student.edu.vn', role: 'student', major: 'Công nghệ thông tin'
   },
   {
     id: 'amy-lee-uuid',
     full_name: 'Lê Hải Yến',
     avatar_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCRB2lGfOoYir30qQ3qda6wsJ_VSkZfCJ1cM8vdA6E2bqIbZOab_4mzurh0m1nMKcrovSJkdrBM67F-LJ5ZYMdYwjxy5TuMuoqVwR0ZbpFMp6mp1vAhbF_Gl8850fl6xClvXfYRW7v-sWFHOQMmX692pMGMmiVMqSmSo-BueDZNVHqdu_w2gv1SbWtHwpLVKk-UHo8bZA84Q1gca--G6RABzkByKw5tGBtgLiw8xj8BbJZ5dBuYc8YcLRYz13ORX_lzf5JaKj0sN-8',
-    streak: 10, total_points: 415, attendance_rate: 93.0, email: 'yen.le@student.edu.vn', role: 'student'
+    streak: 10, total_points: 415, attendance_rate: 93.0, email: 'yen.le@student.edu.vn', role: 'student', major: 'Thiết kế kỹ thuật'
   },
   {
     id: 'tom-baker-uuid',
     full_name: 'Phạm Gia Bảo',
     avatar_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD5-kXMc7RU3en05q9Uly7YAUrFlAwtMVuNiUwZRO_kHQ1AjMfgJVwycNaspmQ-5jClk7mtfw051rXz_HG94Y89lSDcUxKBVScvvKAZiWuHQEWYutiIJHjLF6W_5iX3bgLYn5kkuOYVVNbhp7w9kqpmPcRd7msvPEb1jVO0Ve-fn6uQ9ChSb4-lPTWWRaaYP3FGaQAGv6rsz4xrV1T6zFQnYeJl2xfv8kHpJ80AQ7EeoVB9PVkGyEXT-g12KTj_XD9WE_7-JomN8-8',
-    streak: 4,  total_points: 248, attendance_rate: 85.0, email: 'bao.pham@student.edu.vn', role: 'student'
+    streak: 4,  total_points: 248, attendance_rate: 85.0, email: 'bao.pham@student.edu.vn', role: 'student', major: 'Kinh tế học'
   }
 ];
 
@@ -172,9 +172,69 @@ function getMockSession() {
 
 function initializeMockDatabase() {
   if (typeof window === 'undefined') return;
-  if (!localStorage.getItem('mock_profiles'))    localStorage.setItem('mock_profiles',         JSON.stringify(DEFAULT_PROFILES));
+  
+  // Migrate profiles to have major if not exists
+  let profilesStr = localStorage.getItem('mock_profiles');
+  if (!profilesStr) {
+    localStorage.setItem('mock_profiles', JSON.stringify(DEFAULT_PROFILES));
+  } else {
+    try {
+      const parsed = JSON.parse(profilesStr);
+      let updated = false;
+      parsed.forEach((p: any) => {
+        if (!p.hasOwnProperty('major')) {
+          const match = DEFAULT_PROFILES.find(dp => dp.id === p.id);
+          p.major = match?.major || 'Tâm lý học';
+          updated = true;
+        }
+      });
+      if (updated) {
+        localStorage.setItem('mock_profiles', JSON.stringify(parsed));
+      }
+    } catch {
+      localStorage.setItem('mock_profiles', JSON.stringify(DEFAULT_PROFILES));
+    }
+  }
+
   if (!localStorage.getItem('mock_activities'))  localStorage.setItem('mock_activities',        JSON.stringify(DEFAULT_ACTIVITIES));
-  if (!localStorage.getItem('mock_check_ins'))   localStorage.setItem('mock_check_ins',         JSON.stringify([]));
+  
+  // Seed initial check-ins if empty
+  if (!localStorage.getItem('mock_check_ins') || JSON.parse(localStorage.getItem('mock_check_ins') || '[]').length === 0) {
+    const mockCheckIns = [
+      { id: 'ci-1', user_id: 'jane-doe-uuid', subject: SUBJECT_NAME, game_name: 'Điểm danh', points_earned: 10, week_number: 1, created_at: new Date(Date.now() - 3600000 * 24 * 70).toISOString() },
+      { id: 'ci-2', user_id: 'jane-doe-uuid', subject: SUBJECT_NAME, game_name: 'Đấu trường sinh tử', points_earned: 15, week_number: 2, created_at: new Date(Date.now() - 3600000 * 24 * 63).toISOString() },
+      { id: 'ci-3', user_id: 'jane-doe-uuid', subject: SUBJECT_NAME, game_name: 'Điểm danh cùng GV', points_earned: 10, week_number: 3, created_at: new Date(Date.now() - 3600000 * 24 * 56).toISOString() },
+      { id: 'ci-4', user_id: 'jane-doe-uuid', subject: SUBJECT_NAME, game_name: 'Kẻ giả mạo lớp học', points_earned: 15, week_number: 5, created_at: new Date(Date.now() - 3600000 * 24 * 42).toISOString() },
+      { id: 'ci-5', user_id: 'jane-doe-uuid', subject: SUBJECT_NAME, game_name: 'Giơ tay trả lời', points_earned: 10, week_number: 6, created_at: new Date(Date.now() - 3600000 * 24 * 35).toISOString() },
+      { id: 'ci-6', user_id: 'jane-doe-uuid', subject: SUBJECT_NAME, game_name: 'Khảo sát phản hồi', points_earned: 5, week_number: 7, created_at: new Date(Date.now() - 3600000 * 24 * 28).toISOString() },
+      { id: 'ci-7', user_id: 'jane-doe-uuid', subject: SUBJECT_NAME, game_name: 'Chuỗi điểm danh 🔥', points_earned: 10, week_number: 8, created_at: new Date(Date.now() - 3600000 * 24 * 21).toISOString() },
+      { id: 'ci-8', user_id: 'jane-doe-uuid', subject: SUBJECT_NAME, game_name: 'Cuộc đua nối từ', points_earned: 15, week_number: 9, created_at: new Date(Date.now() - 3600000 * 24 * 14).toISOString() },
+      { id: 'ci-9', user_id: 'jane-doe-uuid', subject: SUBJECT_NAME, game_name: 'Thách đấu 1-1', points_earned: 25, week_number: 10, created_at: new Date(Date.now() - 3600000 * 24 * 7).toISOString() },
+
+      { id: 'ci-10', user_id: 'mark-smith-uuid', subject: SUBJECT_NAME, game_name: 'Điểm danh', points_earned: 10, week_number: 1, created_at: new Date(Date.now() - 3600000 * 24 * 70).toISOString() },
+      { id: 'ci-11', user_id: 'mark-smith-uuid', subject: SUBJECT_NAME, game_name: 'Đấu trường sinh tử', points_earned: 15, week_number: 2, created_at: new Date(Date.now() - 3600000 * 24 * 63).toISOString() },
+      { id: 'ci-12', user_id: 'mark-smith-uuid', subject: SUBJECT_NAME, game_name: 'Điểm danh cùng GV', points_earned: 10, week_number: 3, created_at: new Date(Date.now() - 3600000 * 24 * 56).toISOString() },
+      { id: 'ci-13', user_id: 'mark-smith-uuid', subject: SUBJECT_NAME, game_name: 'Kẻ giả mạo lớp học', points_earned: 15, week_number: 5, created_at: new Date(Date.now() - 3600000 * 24 * 42).toISOString() },
+      { id: 'ci-14', user_id: 'mark-smith-uuid', subject: SUBJECT_NAME, game_name: 'Giơ tay trả lời', points_earned: 10, week_number: 6, created_at: new Date(Date.now() - 3600000 * 24 * 35).toISOString() },
+      { id: 'ci-15', user_id: 'mark-smith-uuid', subject: SUBJECT_NAME, game_name: 'Chuỗi điểm danh 🔥', points_earned: 10, week_number: 8, created_at: new Date(Date.now() - 3600000 * 24 * 21).toISOString() },
+      { id: 'ci-16', user_id: 'mark-smith-uuid', subject: SUBJECT_NAME, game_name: 'Cuộc đua nối từ', points_earned: 15, week_number: 9, created_at: new Date(Date.now() - 3600000 * 24 * 14).toISOString() },
+
+      { id: 'ci-17', user_id: 'amy-lee-uuid', subject: SUBJECT_NAME, game_name: 'Điểm danh', points_earned: 10, week_number: 1, created_at: new Date(Date.now() - 3600000 * 24 * 70).toISOString() },
+      { id: 'ci-18', user_id: 'amy-lee-uuid', subject: SUBJECT_NAME, game_name: 'Đấu trường sinh tử', points_earned: 15, week_number: 2, created_at: new Date(Date.now() - 3600000 * 24 * 63).toISOString() },
+      { id: 'ci-19', user_id: 'amy-lee-uuid', subject: SUBJECT_NAME, game_name: 'Điểm danh cùng GV', points_earned: 10, week_number: 3, created_at: new Date(Date.now() - 3600000 * 24 * 56).toISOString() },
+      { id: 'ci-20', user_id: 'amy-lee-uuid', subject: SUBJECT_NAME, game_name: 'Kẻ giả mạo lớp học', points_earned: 15, week_number: 5, created_at: new Date(Date.now() - 3600000 * 24 * 42).toISOString() },
+      { id: 'ci-21', user_id: 'amy-lee-uuid', subject: SUBJECT_NAME, game_name: 'Khảo sát phản hồi', points_earned: 5, week_number: 7, created_at: new Date(Date.now() - 3600000 * 24 * 28).toISOString() },
+      { id: 'ci-22', user_id: 'amy-lee-uuid', subject: SUBJECT_NAME, game_name: 'Chuỗi điểm danh 🔥', points_earned: 10, week_number: 8, created_at: new Date(Date.now() - 3600000 * 24 * 21).toISOString() },
+      { id: 'ci-23', user_id: 'amy-lee-uuid', subject: SUBJECT_NAME, game_name: 'Thách đấu 1-1', points_earned: 25, week_number: 10, created_at: new Date(Date.now() - 3600000 * 24 * 7).toISOString() },
+
+      { id: 'ci-24', user_id: 'tom-baker-uuid', subject: SUBJECT_NAME, game_name: 'Điểm danh', points_earned: 10, week_number: 1, created_at: new Date(Date.now() - 3600000 * 24 * 70).toISOString() },
+      { id: 'ci-25', user_id: 'tom-baker-uuid', subject: SUBJECT_NAME, game_name: 'Đấu trường sinh tử', points_earned: 15, week_number: 2, created_at: new Date(Date.now() - 3600000 * 24 * 63).toISOString() },
+      { id: 'ci-26', user_id: 'tom-baker-uuid', subject: SUBJECT_NAME, game_name: 'Kẻ giả mạo lớp học', points_earned: 15, week_number: 5, created_at: new Date(Date.now() - 3600000 * 24 * 42).toISOString() },
+      { id: 'ci-27', user_id: 'tom-baker-uuid', subject: SUBJECT_NAME, game_name: 'Chuỗi điểm danh 🔥', points_earned: 10, week_number: 8, created_at: new Date(Date.now() - 3600000 * 24 * 21).toISOString() },
+    ];
+    localStorage.setItem('mock_check_ins', JSON.stringify(mockCheckIns));
+  }
+
   if (!localStorage.getItem('mock_teacher_settings')) localStorage.setItem('mock_teacher_settings', JSON.stringify(DEFAULT_TEACHER_SETTINGS));
 }
 
@@ -210,7 +270,7 @@ function getMockSupabaseClient(): any {
         if (!isTeacher) {
           const profiles = JSON.parse(localStorage.getItem('mock_profiles') || '[]');
           if (!profiles.some((p: any) => p.id === userId)) {
-            profiles.push({ id: userId, full_name: 'Nguyễn Văn A', avatar_url: user.user_metadata.avatar_url, streak: 12, total_points: 210, attendance_rate: 95.0, email, role: 'student' });
+            profiles.push({ id: userId, full_name: 'Nguyễn Văn A', avatar_url: user.user_metadata.avatar_url, streak: 12, total_points: 210, attendance_rate: 95.0, email, role: 'student', major: 'Tâm lý học' });
             localStorage.setItem('mock_profiles', JSON.stringify(profiles));
           }
         }
@@ -227,10 +287,24 @@ function getMockSupabaseClient(): any {
         localStorage.setItem('mock_session', JSON.stringify(session));
         const profiles = JSON.parse(localStorage.getItem('mock_profiles') || '[]');
         if (!profiles.some((p: any) => p.id === userId)) {
-          profiles.push({ id: userId, full_name: fullName, avatar_url: user.user_metadata.avatar_url, streak: 0, total_points: 0, attendance_rate: 100.0, email, role: 'student' });
+          profiles.push({ id: userId, full_name: fullName, avatar_url: user.user_metadata.avatar_url, streak: 0, total_points: 0, attendance_rate: 100.0, email, role: 'student', major: 'Tâm lý học' });
           localStorage.setItem('mock_profiles', JSON.stringify(profiles));
         }
         return { data: { session, user }, error: null };
+      },
+      updateUser: async (attributes: { password?: string; data?: any }) => {
+        if (attributes.password) {
+          console.log('Mock password updated to:', attributes.password);
+        }
+        const session = getMockSession();
+        if (session && session.user) {
+          if (attributes.data) {
+            session.user.user_metadata = { ...session.user.user_metadata, ...attributes.data };
+          }
+          localStorage.setItem('mock_session', JSON.stringify(session));
+          return { data: { user: session.user }, error: null };
+        }
+        return { data: { user: null }, error: new Error('No mock session') };
       },
       signOut: async () => {
         localStorage.removeItem('mock_session');
@@ -250,6 +324,7 @@ function getMockSupabaseClient(): any {
         _ascending: false,
         _isSingle: false,
         _insertData: null as any,
+        _updateData: null as any,
         _isDelete: false,
 
         select(_c?: string) { return this; },
@@ -257,6 +332,7 @@ function getMockSupabaseClient(): any {
         order(col: string, opts?: { ascending?: boolean }) { this._orderCol = col; this._ascending = !!opts?.ascending; return this; },
         single() { this._isSingle = true; return this; },
         insert(data: any) { this._insertData = data; return this; },
+        update(data: any) { this._updateData = data; return this; },
         delete() { this._isDelete = true; return this; },
 
         then(resolve: any, _reject?: any) {
@@ -287,6 +363,33 @@ function getMockSupabaseClient(): any {
                 });
                 localStorage.setItem('mock_check_ins', JSON.stringify(checkIns));
                 resolve({ data: toDelete, error: null });
+                return;
+              }
+              resolve({ data: null, error: null });
+              return;
+            }
+
+            // ── UPDATE ──────────────────────────────────────────────────────
+            if (this._updateData) {
+              if (table === 'profiles') {
+                const profiles = JSON.parse(localStorage.getItem('mock_profiles') || '[]');
+                const updatedProfiles = profiles.map((p: any) => {
+                  let match = true;
+                  this._filters.forEach(f => {
+                    if (p[f.col] !== f.val) match = false;
+                  });
+                  return match ? { ...p, ...this._updateData } : p;
+                });
+                localStorage.setItem('mock_profiles', JSON.stringify(updatedProfiles));
+
+                const result = updatedProfiles.filter((p: any) => {
+                  let match = true;
+                  this._filters.forEach(f => {
+                    if (p[f.col] !== f.val) match = false;
+                  });
+                  return match;
+                });
+                resolve({ data: result, error: null });
                 return;
               }
               resolve({ data: null, error: null });
