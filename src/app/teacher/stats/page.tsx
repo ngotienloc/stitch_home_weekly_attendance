@@ -441,14 +441,7 @@ export default function TeacherStatsPage() {
                     </div>
                     <div className="flex-grow">
                       <p className="text-sm font-bold text-on-surface">{s.full_name}</p>
-                      <p className="text-[11px] text-on-surface-variant">{s.game_name}</p>
-                      {s.student_input && (
-                        <p className="text-xs text-secondary mt-1 bg-surface-container-low px-2.5 py-1.5 rounded-lg border border-outline-variant/20 italic max-w-[320px] break-words">
-                          " {s.student_input} "
-                        </p>
-                      )}
                     </div>
-                    <span className="text-primary font-extrabold text-sm">+{s.points_earned} đ</span>
                   </div>
                 ))}
               </div>
@@ -508,14 +501,7 @@ export default function TeacherStatsPage() {
                     </div>
                     <div className="flex-grow">
                       <p className="text-sm font-bold text-on-surface">{s.full_name}</p>
-                      <p className="text-[11px] text-on-surface-variant">{s.game_name}</p>
-                      {s.student_input && (
-                        <p className="text-xs text-secondary mt-1 bg-surface-container-low px-2.5 py-1.5 rounded-lg border border-outline-variant/20 italic max-w-[320px] break-words">
-                          " {s.student_input} "
-                        </p>
-                      )}
                     </div>
-                    <span className="text-primary font-extrabold text-sm">+{s.points_earned} đ</span>
                   </div>
                 ))}
               </div>

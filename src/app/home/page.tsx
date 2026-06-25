@@ -46,9 +46,24 @@ export default function HomePage() {
   const handleStartSpin = () => {
     if (spinning) return;
     setSpinning(true);
+
+    // Choose a random option index based on attendance and streak
+    // Higher attendance (checkedInWeeks.size) or higher streak increases the chance of higher points
+    const S = checkedInWeeks.size + streak;
+    const baseWeights = [40, 30, 15, 10, 4, 1]; // Weights for segment indexes: 0 (+5đ), 1 (+10đ), 2 (+15đ), 3 (+20đ), 4 (+50đ), 5 (+100đ)
+    const weights = baseWeights.map((w, idx) => w + S * idx * 1.5);
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
     
-    // Choose a random option index
-    const randomIndex = Math.floor(Math.random() * SPIN_OPTIONS.length);
+    let randomNum = Math.random() * totalWeight;
+    let randomIndex = 0;
+    for (let i = 0; i < weights.length; i++) {
+      if (randomNum < weights[i]) {
+        randomIndex = i;
+        break;
+      }
+      randomNum -= weights[i];
+    }
+    
     const chosenValue = SPIN_OPTIONS[randomIndex];
     
     // Calculate rotation: 5 full spins (1800 deg) + offset for the index
